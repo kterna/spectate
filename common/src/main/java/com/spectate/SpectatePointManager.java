@@ -144,14 +144,5 @@ public class SpectatePointManager {
         return addPoint(name, position, distance, heightOffset, description);
     }
 
-    public void listPoints() {
-        Map<String, SpectatePoint> points = getAllPoints();
-        if (points.isEmpty()) {
-            return;
-        }
 
-        for (Map.Entry<String, SpectatePoint> entry : points.entrySet()) {
-            // 输出可通过其他方式处理，如返回列表给调用者
-        }
-    }
 } 

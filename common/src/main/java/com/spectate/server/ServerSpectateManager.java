@@ -2,7 +2,6 @@ package com.spectate.server;
 
 import com.spectate.SpectatePointManager;
 import com.spectate.data.SpectateStateSaver;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
