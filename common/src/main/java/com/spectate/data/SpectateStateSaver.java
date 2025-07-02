@@ -55,12 +55,7 @@ public class SpectateStateSaver {
 
     private void createDefaultPointsIfNeeded() {
         if (spectatePoints.isEmpty()) {
-            // 添加一些示例观察点
-            SpectatePointData spawn = new SpectatePointData(
-                new Vec3(0, 70, 0), 10.0f, 5.0f, "世界出生点"
-            );
-            spectatePoints.put("spawn", spawn);
-            
+            // 添加一些示例观察点            
             SpectatePointData origin = new SpectatePointData(
                 new Vec3(0, 64, 0), 8.0f, 3.0f, "世界原点"
             );

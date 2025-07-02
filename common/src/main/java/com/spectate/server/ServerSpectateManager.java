@@ -65,7 +65,7 @@ public class ServerSpectateManager {
         
         // 旋转相关属性
         public float currentAngle = 0.0f;  // 当前角度
-        public final float rotationSpeed = 0.5f;  // 旋转速度（度/tick）
+        public final float rotationSpeed = 0.1f;  // 旋转速度（度/tick）
         public float height;  // 观察高度，改为非final支持动态更新
         
         // 玩家跟踪相关

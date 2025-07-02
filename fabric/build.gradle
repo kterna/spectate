@@ -47,10 +47,14 @@ processResources {
 
 shadowJar {
     configurations = [project.configurations.shadowBundle]
-    // Remove classifier to make this the main jar instead of dev-shadow
-    archiveClassifier = ''
+    archiveClassifier = 'dev-shadow'
 }
+
+// Disable the regular jar task since we only want the remapped shadow jar
+jar.enabled = false
 
 remapJar {
     inputFile.set shadowJar.archiveFile
+    // This will be our main output jar
+    archiveClassifier = ''
 }
