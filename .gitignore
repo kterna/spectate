@@ -1,0 +1,15 @@
+.cursor
+.gradle
+.idea
+.vscode
+build
+run
+fabric/run
+common/build
+fabric/build
+out
+logs
+.DS_Store
+*.log
+gpr-credentials.properties
+gradle.properties

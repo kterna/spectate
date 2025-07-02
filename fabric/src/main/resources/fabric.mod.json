@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "spectate",
+  "version": "1.0.0",
+  "name": "Spectate",
+  "description": "A server-side only mod for spectating points of interest.",
+  "authors": [
+    "kterna"
+  ],
+  "contact": {
+    "homepage": "https://github.com/kterna/spectate",
+    "sources": "https://github.com/kterna/spectate"
+  },
+  "license": "MIT",
+  "icon": "assets/spectate/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.spectate.fabric.SpectateFabric"
+    ]
+  },
+  "mixins": [
+    "spectate.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.9",
+    "fabric": "*",
+    "minecraft": "1.21.x"
+  }
+}
