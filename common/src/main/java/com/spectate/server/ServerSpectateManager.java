@@ -677,4 +677,4 @@ public class ServerSpectateManager {
         cycleTimers.clear();
         spectateTimers.clear();
     }
-}
+} 

@@ -154,4 +154,4 @@ public class SpectatePointManager {
             // 输出可通过其他方式处理，如返回列表给调用者
         }
     }
-}
+} 

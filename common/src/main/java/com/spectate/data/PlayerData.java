@@ -47,4 +47,4 @@ public class PlayerData {
         this.yaw = nbt.getFloat("yaw").orElse(0.0f);
         this.pitch = nbt.getFloat("pitch").orElse(0.0f);
     }
-}
+} 

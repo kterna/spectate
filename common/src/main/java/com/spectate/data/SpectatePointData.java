@@ -51,4 +51,4 @@ public class SpectatePointData {
         return String.format("%s [%.1f, %.1f, %.1f] 距离:%.1f 高度:%.1f", 
             description, position.x, position.y, position.z, distance, heightOffset);
     }
-}
+} 
