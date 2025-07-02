@@ -12,7 +12,7 @@ dependencies {
     modImplementation "dev.architectury:architectury:$rootProject.architectury_api_version"
 }
 
-// Disable jar tasks for common module to reduce build artifacts
+// Keep jar tasks enabled for common module as Architectury requires them
 // The common code will be included in the fabric jar via shadowBundle
-jar.enabled = false
-remapJar.enabled = false
+// jar.enabled = false
+// remapJar.enabled = false
