@@ -47,7 +47,8 @@ processResources {
 
 shadowJar {
     configurations = [project.configurations.shadowBundle]
-    archiveClassifier = 'dev-shadow'
+    // Remove classifier to make this the main jar instead of dev-shadow
+    archiveClassifier = ''
 }
 
 remapJar {

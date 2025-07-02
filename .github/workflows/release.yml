@@ -69,8 +69,7 @@ jobs:
             
             **Note**: This is a server-side only mod. Clients do not need to install anything.
           files: |
-            fabric/build/libs/*.jar
-            common/build/libs/*.jar
+            fabric/build/libs/spectate-fabric-*.jar
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,6 +78,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: spectate-jars-${{ steps.version.outputs.VERSION }}
-          path: |
-            fabric/build/libs/*.jar
-            common/build/libs/*.jar
+          path: fabric/build/libs/spectate-fabric-*.jar
