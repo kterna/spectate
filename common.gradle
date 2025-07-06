@@ -7,6 +7,11 @@ int mcVersion = project.mcVersion
 
 repositories {
     maven {
+        url = 'https://maven.fabricmc.net/'
+        name = 'Fabric'
+    }
+    mavenCentral()
+    maven {
         url 'https://masa.dy.fi/maven'
     }
     maven {

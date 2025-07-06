@@ -1,406 +1,217 @@
 package com.spectate.data;
 
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.phys.Vec3;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.util.math.BlockPos;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
+/**
+ * SpectateStateSaver 负责将观察点和循环列表持久化到磁盘。
+ * 单例实现，线程安全。
+ */
 public class SpectateStateSaver {
-    private static SpectateStateSaver instance;
-    private static final String DATA_DIR = "config/spectate_data";
-    private static final String PLAYER_DATA_FILE = "player_states.properties";
-    private static final String SPECTATE_POINTS_FILE = "spectate_points.properties";
-    private static final String CYCLE_LISTS_FILE = "cycle_lists.properties";
-    
-    // 玩家状态数据
-    public HashMap<UUID, PlayerData> players = new HashMap<>();
-    
-    // 观察点数据
-    public HashMap<String, SpectatePointData> spectatePoints = new HashMap<>();
-    
-    // 玩家循环列表数据 (UUID -> 观察点名称列表)
-    public HashMap<UUID, List<String>> playerCycleLists = new HashMap<>();
-    
-    // 玩家循环配置数据 (UUID -> 观察时长(秒))
-    public HashMap<UUID, Integer> playerCycleConfigs = new HashMap<>();
 
-    private SpectateStateSaver() {
-        createDataDirectory();
-        loadAllData();
-        createDefaultPointsIfNeeded();
-    }
+    private static final String POINTS_FILE_NAME = "spectate_points.properties";
+    private static final String CYCLE_FILE_NAME = "cycle_lists.properties";
+
+    private static final SpectateStateSaver INSTANCE = new SpectateStateSaver();
 
     public static SpectateStateSaver getInstance() {
-        if (instance == null) {
-            instance = new SpectateStateSaver();
-        }
-        return instance;
+        return INSTANCE;
     }
 
-    private void createDataDirectory() {
-        File dataDir = new File(DATA_DIR);
-        if (!dataDir.exists()) {
-            dataDir.mkdirs();
-        }
-    }
+    // 观察点缓存：名称 -> 数据
+    private final Map<String, SpectatePointData> pointCache = new ConcurrentHashMap<>();
+    // 玩家循环列表缓存：玩家UUID字符串 -> 点名称列表
+    private final Map<String, List<String>> cycleCache = new ConcurrentHashMap<>();
 
-    private void createDefaultPointsIfNeeded() {
-        if (spectatePoints.isEmpty()) {
-            // 添加一些示例观察点            
-            SpectatePointData origin = new SpectatePointData(
-                new Vec3(0, 64, 0), 8.0f, 3.0f, "世界原点"
-            );
-            spectatePoints.put("origin", origin);
-            
-            saveSpectatePoints(); // 保存默认观察点
-        }
-    }
+    private final Path pointsFile;
+    private final Path cycleFile;
 
-    // 加载所有数据
-    private void loadAllData() {
-        loadPlayerStates();
-        loadSpectatePoints();
-        loadCycleLists();
-    }
+    private SpectateStateSaver() {
+        Path configDir = FabricLoader.getInstance().getConfigDir();
+        this.pointsFile = configDir.resolve(POINTS_FILE_NAME);
+        this.cycleFile = configDir.resolve(CYCLE_FILE_NAME);
 
-    // 保存所有数据
-    public void saveAllData() {
-        savePlayerStates();
-        saveSpectatePoints();
-        saveCycleLists();
-    }
-
-    // 玩家状态持久化
-    private void loadPlayerStates() {
-        File file = new File(DATA_DIR, PLAYER_DATA_FILE);
-        if (!file.exists()) {
-            return;
-        }
-
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(file)) {
-            props.load(fis);
-            
-            for (String key : props.stringPropertyNames()) {
-                if (key.endsWith(".gameMode")) {
-                    String uuidStr = key.substring(0, key.lastIndexOf(".gameMode"));
-                    try {
-                        UUID uuid = UUID.fromString(uuidStr);
-                        
-                        String gameMode = props.getProperty(uuidStr + ".gameMode", "SURVIVAL");
-                        double posX = Double.parseDouble(props.getProperty(uuidStr + ".posX", "0"));
-                        double posY = Double.parseDouble(props.getProperty(uuidStr + ".posY", "0"));
-                        double posZ = Double.parseDouble(props.getProperty(uuidStr + ".posZ", "0"));
-                        float yaw = Float.parseFloat(props.getProperty(uuidStr + ".yaw", "0"));
-                        float pitch = Float.parseFloat(props.getProperty(uuidStr + ".pitch", "0"));
-                        
-                        // 使用GameType.byName()来安全地解析游戏模式，兼容大小写
-                        GameType gameTypeEnum = GameType.byName(gameMode, GameType.SURVIVAL);
-                        
-                        PlayerData playerData = new PlayerData(
-                            gameTypeEnum,
-                            new Vec3(posX, posY, posZ),
-                            yaw,
-                            pitch
-                        );
-                        
-                        players.put(uuid, playerData);
-                    } catch (Exception e) {
-                        System.err.println("加载玩家状态时出错 " + uuidStr + ": " + e.getMessage());
-                    }
-                }
-            }
+        try {
+            loadPoints();
         } catch (IOException e) {
-            System.err.println("读取玩家状态文件失败: " + e.getMessage());
+            // 如果加载失败，创建默认点并保存
+            createDefaultPoint();
         }
-    }
 
-    private void savePlayerStates() {
-        File file = new File(DATA_DIR, PLAYER_DATA_FILE);
-        Properties props = new Properties();
-        
-        for (Map.Entry<UUID, PlayerData> entry : players.entrySet()) {
-            String uuidStr = entry.getKey().toString();
-            PlayerData data = entry.getValue();
-            
-            // 保存为大写格式，便于后续解析
-            props.setProperty(uuidStr + ".gameMode", data.gameMode.name());
-            props.setProperty(uuidStr + ".posX", String.valueOf(data.position.x));
-            props.setProperty(uuidStr + ".posY", String.valueOf(data.position.y));
-            props.setProperty(uuidStr + ".posZ", String.valueOf(data.position.z));
-            props.setProperty(uuidStr + ".yaw", String.valueOf(data.yaw));
-            props.setProperty(uuidStr + ".pitch", String.valueOf(data.pitch));
-        }
-        
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            props.store(fos, "Spectate Mod - 玩家状态数据");
+        try {
+            loadCycles();
         } catch (IOException e) {
-            System.err.println("保存玩家状态文件失败: " + e.getMessage());
+            // ignore, empty by default
         }
     }
 
-    // 观察点持久化
-    private void loadSpectatePoints() {
-        File file = new File(DATA_DIR, SPECTATE_POINTS_FILE);
-        if (!file.exists()) {
-            return;
+    /* ------------------- 观察点 ------------------- */
+
+    public synchronized void addSpectatePoint(String name, SpectatePointData data) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(data, "data");
+        pointCache.put(name, data);
+        savePoints();
+    }
+
+    public synchronized SpectatePointData removeSpectatePoint(String name) {
+        SpectatePointData removed = pointCache.remove(name);
+        if (removed != null) {
+            savePoints();
         }
-
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(file)) {
-            props.load(fis);
-            
-            for (String key : props.stringPropertyNames()) {
-                if (key.endsWith(".posX")) {
-                    String pointName = key.substring(0, key.lastIndexOf(".posX"));
-                    try {
-                        double posX = Double.parseDouble(props.getProperty(pointName + ".posX", "0"));
-                        double posY = Double.parseDouble(props.getProperty(pointName + ".posY", "0"));
-                        double posZ = Double.parseDouble(props.getProperty(pointName + ".posZ", "0"));
-                        float distance = Float.parseFloat(props.getProperty(pointName + ".distance", "50"));
-                        float heightOffset = Float.parseFloat(props.getProperty(pointName + ".heightOffset", "0"));
-                        String description = props.getProperty(pointName + ".description", pointName);
-                        
-                        SpectatePointData pointData = new SpectatePointData(
-                            new Vec3(posX, posY, posZ),
-                            distance,
-                            heightOffset,
-                            description
-                        );
-                        
-                        spectatePoints.put(pointName.toLowerCase(), pointData);
-                    } catch (Exception e) {
-                        System.err.println("加载观察点时出错 " + pointName + ": " + e.getMessage());
-                    }
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("读取观察点文件失败: " + e.getMessage());
-        }
+        return removed;
     }
 
-    private void saveSpectatePoints() {
-        File file = new File(DATA_DIR, SPECTATE_POINTS_FILE);
-        Properties props = new Properties();
-        
-        for (Map.Entry<String, SpectatePointData> entry : spectatePoints.entrySet()) {
-            String pointName = entry.getKey();
-            SpectatePointData data = entry.getValue();
-            
-            props.setProperty(pointName + ".posX", String.valueOf(data.position.x));
-            props.setProperty(pointName + ".posY", String.valueOf(data.position.y));
-            props.setProperty(pointName + ".posZ", String.valueOf(data.position.z));
-            props.setProperty(pointName + ".distance", String.valueOf(data.distance));
-            props.setProperty(pointName + ".heightOffset", String.valueOf(data.heightOffset));
-            props.setProperty(pointName + ".description", data.description);
-        }
-        
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            props.store(fos, "Spectate Mod - 观察点数据");
-        } catch (IOException e) {
-            System.err.println("保存观察点文件失败: " + e.getMessage());
-        }
-    }
-
-    // 玩家数据访问方法
-    public PlayerData getPlayerState(UUID playerUUID) {
-        return players.computeIfAbsent(playerUUID, uuid -> new PlayerData());
-    }
-
-    public void setPlayerState(UUID playerUUID, PlayerData playerData) {
-        players.put(playerUUID, playerData);
-        savePlayerStates(); // 立即保存
-    }
-
-    public void clearPlayerState(UUID playerUUID) {
-        players.remove(playerUUID);
-        savePlayerStates(); // 立即保存
-    }
-
-    // 检查玩家是否有未完成的观察任务
-    public boolean hasPlayerState(UUID playerUUID) {
-        return players.containsKey(playerUUID);
-    }
-
-    // 观察点数据访问方法
     public SpectatePointData getSpectatePoint(String name) {
-        return spectatePoints.get(name.toLowerCase());
+        return pointCache.get(name);
     }
 
-    public boolean addSpectatePoint(String name, SpectatePointData pointData) {
-        if (name == null || name.trim().isEmpty()) {
-            return false;
-        }
-        spectatePoints.put(name.toLowerCase(), pointData);
-        saveSpectatePoints(); // 立即保存
-        return true;
+    public Collection<String> listPointNames() {
+        return Collections.unmodifiableSet(pointCache.keySet());
     }
 
-    public boolean removeSpectatePoint(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            return false;
-        }
-        boolean removed = spectatePoints.remove(name.toLowerCase()) != null;
-        if (removed) {
-            saveSpectatePoints(); // 立即保存
-        }
-        return removed;
+    /* ------------------- 循环列表 ------------------- */
+    public synchronized void setPlayerCycleList(UUID playerUUID, List<String> list) {
+        Objects.requireNonNull(playerUUID);
+        Objects.requireNonNull(list);
+        cycleCache.put(playerUUID.toString(), new ArrayList<>(list));
+        saveCycles();
     }
 
-    public Map<String, SpectatePointData> getAllSpectatePoints() {
-        return new HashMap<>(spectatePoints);
+    public List<String> getPlayerCycleList(UUID playerUUID) {
+        return cycleCache.getOrDefault(playerUUID.toString(), Collections.emptyList());
     }
 
-    public boolean hasSpectatePoint(String name) {
-        return spectatePoints.containsKey(name.toLowerCase());
-    }
+    /* ------------------- 内部加载 / 保存 ------------------- */
 
-    // 获取所有有未完成观察任务的玩家UUID
-    public Map<UUID, PlayerData> getAllPendingPlayerStates() {
-        return new HashMap<>(players);
-    }
-
-    // ========== 循环列表持久化 ==========
-    
-    // 加载循环列表数据
-    private void loadCycleLists() {
-        File file = new File(DATA_DIR, CYCLE_LISTS_FILE);
-        if (!file.exists()) {
+    private void loadPoints() throws IOException {
+        if (!Files.exists(pointsFile)) {
+            createDefaultPoint();
             return;
         }
-
         Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(file)) {
+        try (FileInputStream fis = new FileInputStream(pointsFile.toFile())) {
             props.load(fis);
-            
-            for (String key : props.stringPropertyNames()) {
-                if (key.endsWith(".points")) {
-                    String uuidStr = key.substring(0, key.lastIndexOf(".points"));
-                    try {
-                        UUID uuid = UUID.fromString(uuidStr);
-                        
-                        String pointsStr = props.getProperty(uuidStr + ".points", "");
-                        int watchDuration = Integer.parseInt(props.getProperty(uuidStr + ".duration", "600"));
-                        
-                        List<String> pointNames = new ArrayList<>();
-                        if (!pointsStr.trim().isEmpty()) {
-                            String[] points = pointsStr.split(",");
-                            for (String point : points) {
-                                String trimmed = point.trim();
-                                if (!trimmed.isEmpty()) {
-                                    pointNames.add(trimmed);
-                                }
-                            }
-                        }
-                        
-                        if (!pointNames.isEmpty()) {
-                            playerCycleLists.put(uuid, pointNames);
-                        }
-                        playerCycleConfigs.put(uuid, watchDuration);
-                        
-                    } catch (Exception e) {
-                        System.err.println("加载玩家循环列表时出错 " + uuidStr + ": " + e.getMessage());
-                    }
-                }
+        }
+        for (String key : props.stringPropertyNames()) {
+            String value = props.getProperty(key);
+            SpectatePointData data = parsePoint(value);
+            if (data != null) {
+                pointCache.put(key, data);
             }
-        } catch (IOException e) {
-            System.err.println("读取循环列表文件失败: " + e.getMessage());
+        }
+        if (pointCache.isEmpty()) {
+            createDefaultPoint();
         }
     }
 
-    // 保存循环列表数据
-    private void saveCycleLists() {
-        File file = new File(DATA_DIR, CYCLE_LISTS_FILE);
+    private void savePoints() {
         Properties props = new Properties();
-        
-        // 保存所有玩家的循环列表
-        for (Map.Entry<UUID, List<String>> entry : playerCycleLists.entrySet()) {
-            String uuidStr = entry.getKey().toString();
-            List<String> pointNames = entry.getValue();
-            int duration = playerCycleConfigs.getOrDefault(entry.getKey(), 600);
-            
-            // 将观察点列表转为逗号分隔的字符串
-            String pointsStr = String.join(",", pointNames);
-            props.setProperty(uuidStr + ".points", pointsStr);
-            props.setProperty(uuidStr + ".duration", String.valueOf(duration));
+        for (Map.Entry<String, SpectatePointData> entry : pointCache.entrySet()) {
+            props.setProperty(entry.getKey(), serializePoint(entry.getValue()));
         }
-        
-        // 保存只有配置但没有观察点的玩家
-        for (Map.Entry<UUID, Integer> entry : playerCycleConfigs.entrySet()) {
-            String uuidStr = entry.getKey().toString();
-            if (!playerCycleLists.containsKey(entry.getKey())) {
-                props.setProperty(uuidStr + ".points", "");
-                props.setProperty(uuidStr + ".duration", String.valueOf(entry.getValue()));
+        try {
+            Files.createDirectories(pointsFile.getParent());
+            try (FileOutputStream fos = new FileOutputStream(pointsFile.toFile())) {
+                props.store(fos, "Spectate Points");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadCycles() throws IOException {
+        if (!Files.exists(cycleFile)) {
+            return;
+        }
+        Properties props = new Properties();
+        try (FileInputStream fis = new FileInputStream(cycleFile.toFile())) {
+            props.load(fis);
+        }
+        for (String key : props.stringPropertyNames()) {
+            String value = props.getProperty(key);
+            List<String> list = Arrays.stream(value.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+            cycleCache.put(key, list);
+        }
+    }
+
+    private void saveCycles() {
+        Properties props = new Properties();
+        for (Map.Entry<String, List<String>> entry : cycleCache.entrySet()) {
+            String joined = String.join(",", entry.getValue());
+            props.setProperty(entry.getKey(), joined);
+        }
+        try {
+            Files.createDirectories(cycleFile.getParent());
+            try (FileOutputStream fos = new FileOutputStream(cycleFile.toFile())) {
+                props.store(fos, "Cycle Lists");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /* ------------------- 序列化帮助 ------------------- */
+
+    private static String serializePoint(SpectatePointData data) {
+        BlockPos pos = data.getPosition();
+        return String.format(Locale.ROOT, "%d,%d,%d,%.2f,%.2f,%s",
+                pos.getX(), pos.getY(), pos.getZ(),
+                data.getDistance(), data.getHeightOffset(),
+                escape(data.getDescription()));
+    }
+
+    private static SpectatePointData parsePoint(String str) {
+        try {
+            String[] parts = str.split(",", 6); // description 可能包含逗号，限制分割次数
+            int x = Integer.parseInt(parts[0]);
+            int y = Integer.parseInt(parts[1]);
+            int z = Integer.parseInt(parts[2]);
+            double dist = Double.parseDouble(parts[3]);
+            double h = Double.parseDouble(parts[4]);
+            String desc = unescape(parts.length >= 6 ? parts[5] : "");
+            return new SpectatePointData(new BlockPos(x, y, z), dist, h, desc);
+        } catch (Exception e) {
+            System.err.println("[Spectate] Failed to parse spectate point: " + str);
+            return null;
+        }
+    }
+
+    /* ------------------- 默认点 ------------------- */
+    private void createDefaultPoint() {
+        addSpectatePoint("origin", new SpectatePointData(BlockPos.ORIGIN, 10.0, 3.0, "(auto) world spawn"));
+    }
+
+    /* ------------------- 文本转义简单实现 ------------------- */
+    private static String escape(String s) {
+        return s.replace("\\", "\\\\").replace(",", "\\,");
+    }
+
+    private static String unescape(String s) {
+        StringBuilder sb = new StringBuilder();
+        boolean escaping = false;
+        for (char c : s.toCharArray()) {
+            if (escaping) {
+                sb.append(c);
+                escaping = false;
+            } else if (c == '\\') {
+                escaping = true;
+            } else {
+                sb.append(c);
             }
         }
-        
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            props.store(fos, "Spectate Mod - 玩家循环列表数据");
-        } catch (IOException e) {
-            System.err.println("保存循环列表文件失败: " + e.getMessage());
-        }
-    }
-
-    // ========== 循环列表数据访问方法 ==========
-    
-    public List<String> getPlayerCycleList(UUID playerUUID) {
-        return playerCycleLists.getOrDefault(playerUUID, new ArrayList<>());
-    }
-
-    public void setPlayerCycleList(UUID playerUUID, List<String> pointNames) {
-        if (pointNames == null || pointNames.isEmpty()) {
-            playerCycleLists.remove(playerUUID);
-        } else {
-            playerCycleLists.put(playerUUID, new ArrayList<>(pointNames));
-        }
-        saveCycleLists(); // 立即保存
-    }
-
-    public int getPlayerCycleDuration(UUID playerUUID) {
-        return playerCycleConfigs.getOrDefault(playerUUID, 600); // 默认10分钟
-    }
-
-    public void setPlayerCycleDuration(UUID playerUUID, int durationSeconds) {
-        playerCycleConfigs.put(playerUUID, durationSeconds);
-        saveCycleLists(); // 立即保存
-    }
-
-    public boolean addPointToCycle(UUID playerUUID, String pointName) {
-        List<String> currentList = getPlayerCycleList(playerUUID);
-        if (!currentList.contains(pointName)) {
-            currentList.add(pointName);
-            setPlayerCycleList(playerUUID, currentList);
-            return true;
-        }
-        return false;
-    }
-
-    public boolean removePointFromCycle(UUID playerUUID, String pointName) {
-        List<String> currentList = getPlayerCycleList(playerUUID);
-        boolean removed = currentList.remove(pointName);
-        if (removed) {
-            setPlayerCycleList(playerUUID, currentList);
-        }
-        return removed;
-    }
-
-    public void clearPlayerCycle(UUID playerUUID) {
-        playerCycleLists.remove(playerUUID);
-        // 保留时长配置，只清除观察点列表
-        saveCycleLists();
-    }
-
-    // 清理并保存数据（在程序关闭时调用）
-    public void shutdown() {
-        saveAllData();
+        return sb.toString();
     }
 } 
