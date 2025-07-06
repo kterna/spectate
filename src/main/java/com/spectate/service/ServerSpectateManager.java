@@ -528,4 +528,4 @@ public class ServerSpectateManager {
         session.index = (session.index + 1) % session.pointList.size();
         switchToCurrentCyclePoint(player);
     }
-} 
+}

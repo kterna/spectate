@@ -337,4 +337,4 @@ public class SpectateCommand {
 
         return CommandManager.literal("coords").then(posArg);
     }
-} 
+}

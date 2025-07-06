@@ -35,4 +35,4 @@ public class SpectateMod implements ModInitializer {
         // 注册命令
         SpectateCommand.register();
     }
-} 
+}
