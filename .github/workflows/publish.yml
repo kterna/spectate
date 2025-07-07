@@ -1,0 +1,99 @@
+name: Publish to Mod Platforms
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to publish'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.release.prerelease }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v3
+
+    - name: Build all versions
+      run: ./gradlew buildAndGather
+
+    - name: Get release info
+      id: release_info
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+          CHANGELOG="Manual publish of version $VERSION"
+        else
+          VERSION="${{ github.event.release.tag_name }}"
+          CHANGELOG="${{ github.event.release.body }}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    # 如果你想发布到CurseForge，取消注释以下步骤并设置相应的secrets
+    # - name: Publish to CurseForge
+    #   uses: Kir-Antipov/mc-publish@v3.3
+    #   with:
+    #     curseforge-id: YOUR_CURSEFORGE_PROJECT_ID
+    #     curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+    #
+    #     name: Spectate ${{ steps.release_info.outputs.VERSION }}
+    #     version: ${{ steps.release_info.outputs.VERSION }}
+    #     changelog: ${{ steps.release_info.outputs.CHANGELOG }}
+    #
+    #     loaders: fabric
+    #     game-versions: |
+    #       1.16.5
+    #       1.21.4
+    #       1.21.5
+    #       1.21.7
+    #
+    #     files: build/libs/*.jar
+
+    # 如果你想发布到Modrinth，取消注释以下步骤并设置相应的secrets
+    # - name: Publish to Modrinth
+    #   uses: Kir-Antipov/mc-publish@v3.3
+    #   with:
+    #     modrinth-id: YOUR_MODRINTH_PROJECT_ID
+    #     modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+    #
+    #     name: Spectate ${{ steps.release_info.outputs.VERSION }}
+    #     version: ${{ steps.release_info.outputs.VERSION }}
+    #     changelog: ${{ steps.release_info.outputs.CHANGELOG }}
+    #
+    #     loaders: fabric
+    #     game-versions: |
+    #       1.16.5
+    #       1.21.4
+    #       1.21.5
+    #       1.21.7
+    #
+    #     files: build/libs/*.jar
+    #     dependencies: |
+    #       fabric-api | depends | *
+
+    - name: Notify success
+      run: |
+        echo "✅ 发布流程完成！"
+        echo "版本: ${{ steps.release_info.outputs.VERSION }}"
+        echo "构建的文件:"
+        ls -la build/libs/*.jar

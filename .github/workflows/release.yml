@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送形如 v1.0.0 的标签时触发
+  workflow_dispatch:  # 允许手动触���
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要写权限来创建release
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v3
+
+    - name: Build all versions
+      run: ./gradlew buildAndGather
+
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION="manual-$(date +%Y%m%d-%H%M%S)"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+          else
+            CHANGELOG="首次发布"
+          fi
+        else
+          CHANGELOG="手动发布"
+        fi
+        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        name: Spectate ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## Spectate ${{ steps.get_version.outputs.VERSION }}
+          
+          ### 支持的Minecraft版本
+          - Minecraft 1.16.5 (Fabric)
+          - Minecraft 1.21.4 (Fabric)
+          - Minecraft 1.21.5 (Fabric)
+          - Minecraft 1.21.7 (Fabric)
+          
+          ### 下载说明
+          请根据你的Minecraft版本下载对应的jar文件：
+          - `spectate-v1.0.0-mc1.16.5-SNAPSHOT.jar` - 适用于 Minecraft 1.16.5
+          - `spectate-v1.0.0-mc1.21.4-SNAPSHOT.jar` - 适用于 Minecraft 1.21.4
+          - `spectate-v1.0.0-mc1.21.5-SNAPSHOT.jar` - 适用于 Minecraft 1.21.5
+          - `spectate-v1.0.0-mc1.21.7-SNAPSHOT.jar` - 适用于 Minecraft 1.21.7
+          
+          ### 安装说明
+          1. 确保已安装对应版本的 Fabric Loader
+          2. 下载对应Minecraft版本的jar文件
+          3. 将jar文件放入 `.minecraft/mods` 目录
+          4. 启动游戏即可使用
+          
+          ### 依赖要求
+          - Fabric API (会自动下载依赖版本)
+          - Fabric Loader 0.16.14+
+          
+          ### 变更日志
+          ${{ steps.changelog.outputs.CHANGELOG }}
+        files: build/libs/*.jar
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
