@@ -3,8 +3,6 @@ package com.spectate;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import com.spectate.command.SpectateCommand;
 
 /**
@@ -13,7 +11,6 @@ import com.spectate.command.SpectateCommand;
 public class SpectateMod implements ModInitializer {
 
     public static final String MOD_ID = "spectate";
-    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static MinecraftServer server;
 
@@ -23,12 +20,10 @@ public class SpectateMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Initializing Spectate Mod...");
 
         // 记录服务器实例，供其他单例使用
         ServerLifecycleEvents.SERVER_STARTED.register(srv -> {
             server = srv;
-            LOGGER.info("Spectate Mod captured server instance");
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(srv -> server = null);
 

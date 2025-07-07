@@ -8,7 +8,11 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.spectate.data.SpectatePointData;
 import com.spectate.service.SpectatePointManager;
 import com.spectate.service.ServerSpectateManager;
+//#if MC >= 11900
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+//#else
+import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+//#endif
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
@@ -27,8 +31,13 @@ import java.util.List;
 public class SpectateCommand {
 
     public static void register() {
+//#if MC >= 11900
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 registerRoot(dispatcher));
+//#else
+        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) ->
+                registerRoot(dispatcher));
+//#endif
     }
 
     private static void registerRoot(CommandDispatcher<ServerCommandSource> dispatcher) {
