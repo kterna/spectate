@@ -6,7 +6,12 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+//#if MC >= 11900
 import net.minecraft.text.Text;
+//#else
+import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
+//#endif
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
@@ -31,6 +36,59 @@ public class ServerSpectateManager {
     private static final ServerSpectateManager INSTANCE = new ServerSpectateManager();
     public static ServerSpectateManager getInstance() { return INSTANCE; }
 
+    // Helper method for cross-version Text creation
+    private static Text createText(String message) {
+//#if MC >= 11900
+        return Text.literal(message);
+//#else
+        return new LiteralText(message);
+//#endif
+    }
+
+    // Helper method for cross-version player property access
+    private static float getPlayerYaw(ServerPlayerEntity player) {
+//#if MC >= 11900
+        return player.getYaw();
+//#else
+        return player.yaw;
+//#endif
+    }
+
+    private static float getPlayerPitch(ServerPlayerEntity player) {
+//#if MC >= 11900
+        return player.getPitch();
+//#else
+        return player.pitch;
+//#endif
+    }
+
+    // Helper method for cross-version gamemode change
+    private static void changeGameMode(ServerPlayerEntity player, GameMode gameMode) {
+//#if MC >= 11900
+        player.changeGameMode(gameMode);
+//#else
+        player.setGameMode(gameMode);
+//#endif
+    }
+
+    // Helper method for cross-version teleport
+    private static void teleportPlayer(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
+//#if MC >= 11900
+        player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch, false);
+//#else
+        player.teleport(world, x, y, z, yaw, pitch);
+//#endif
+    }
+
+    // Helper method for cross-version removed check
+    private static boolean isPlayerRemoved(ServerPlayerEntity player) {
+//#if MC >= 11900
+        return player.isRemoved();
+//#else
+        return player.removed;
+//#endif
+    }
+
     /* ------------------- Session 类 ------------------- */
     
     /**
@@ -47,15 +105,15 @@ public class ServerSpectateManager {
         PlayerOriginalState(ServerPlayerEntity player) {
             this.gameMode = player.interactionManager.getGameMode();
             this.position = player.getPos();
-            this.yaw = player.getYaw();
-            this.pitch = player.getPitch();
+            this.yaw = getPlayerYaw(player);
+            this.pitch = getPlayerPitch(player);
             this.world = player.getServerWorld();
             this.camera = player.getCameraEntity();
         }
 
         void restore(ServerPlayerEntity player) {
-            player.changeGameMode(gameMode);
-            player.teleport(world, position.x, position.y, position.z, Collections.emptySet(), yaw, pitch, false);
+            changeGameMode(player, gameMode);
+            teleportPlayer(player, world, position.x, position.y, position.z, yaw, pitch);
             player.setCameraEntity(camera);
         }
     }
@@ -204,7 +262,7 @@ public class ServerSpectateManager {
         
         // 如果不在循环模式且已有观察会话，提示错误
         if (!inCycleMode && activeSpectations.containsKey(player.getUuid())) {
-            player.sendMessage(Text.literal("Already spectating. Use /cspectate stop first."), false);
+            player.sendMessage(createText("Already spectating. Use /cspectate stop first."), false);
             return;
         }
         
@@ -233,11 +291,11 @@ public class ServerSpectateManager {
         double dz0 = point.getPosition().getZ() + 0.5 - (camZ + 0.5);
         float yaw0 = (float)(Math.atan2(dz0, dx0) * 180.0 / Math.PI) - 90f;
         float pitch0 = (float)(-Math.toDegrees(Math.atan2(dy0, Math.sqrt(dx0*dx0 + dz0*dz0))));
-        player.teleport(player.getServerWorld(), camX + 0.5, camY + 0.5, camZ + 0.5, Collections.emptySet(), yaw0, pitch0, false);
+        teleportPlayer(player, player.getServerWorld(), camX + 0.5, camY + 0.5, camZ + 0.5, yaw0, pitch0);
 
         server.execute(() -> {
-            player.changeGameMode(GameMode.SPECTATOR);
-            player.sendMessage(Text.literal("Now spectating point: " + point.getDescription()), false);
+            changeGameMode(player, GameMode.SPECTATOR);
+            player.sendMessage(createText("Now spectating point: " + point.getDescription()), false);
 
             // 如果旋转速度为 0，则不安排环绕任务
             double speedDeg = point.getRotationSpeed();
@@ -256,8 +314,8 @@ public class ServerSpectateManager {
                     double dz = point.getPosition().getZ() + 0.5 - camZn;
                     float yaw = (float)(Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
                     float pitch = (float)(-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx*dx + dz*dz))));
-                    if (player.isRemoved()) return;
-                    player.teleport(player.getServerWorld(), camXn, camYn, camZn, Collections.emptySet(), yaw, pitch, false);
+                    if (isPlayerRemoved(player)) return;
+                    teleportPlayer(player, player.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
                 }, 100, 50, TimeUnit.MILLISECONDS);
             }
         });
@@ -281,7 +339,7 @@ public class ServerSpectateManager {
         // 恢复玩家原始状态
         PlayerOriginalState originalState = playerOriginalStates.remove(playerId);
         if (originalState == null) {
-            player.sendMessage(Text.literal("Not spectating."), false);
+            player.sendMessage(createText("Not spectating."), false);
             return;
         }
         
@@ -290,7 +348,7 @@ public class ServerSpectateManager {
         
         server.execute(() -> {
             originalState.restore(player);
-            player.sendMessage(Text.literal("Stopped spectating."), false);
+            player.sendMessage(createText("Stopped spectating."), false);
         });
     }
 
@@ -304,7 +362,7 @@ public class ServerSpectateManager {
     public void addCyclePoint(ServerPlayerEntity player, String pointName) {
         PlayerCycleSession session = cycleSessions.computeIfAbsent(player.getUuid(), k -> new PlayerCycleSession());
         session.addPoint(pointName);
-        player.sendMessage(Text.literal("Added '" + pointName + "' to cycle list."), false);
+        player.sendMessage(createText("Added '" + pointName + "' to cycle list."), false);
     }
 
     /**
@@ -313,11 +371,11 @@ public class ServerSpectateManager {
     public void removeCyclePoint(ServerPlayerEntity player, String pointName) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session == null) {
-            player.sendMessage(Text.literal("You don't have a cycle list."), false);
+            player.sendMessage(createText("You don't have a cycle list."), false);
             return;
         }
         session.removePoint(pointName);
-        player.sendMessage(Text.literal("Removed '" + pointName + "' from cycle list."), false);
+        player.sendMessage(createText("Removed '" + pointName + "' from cycle list."), false);
     }
 
     /**
@@ -326,11 +384,11 @@ public class ServerSpectateManager {
     public void clearCyclePoints(ServerPlayerEntity player) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session == null) {
-            player.sendMessage(Text.literal("You don't have a cycle list."), false);
+            player.sendMessage(createText("You don't have a cycle list."), false);
             return;
         }
         session.clearPoints();
-        player.sendMessage(Text.literal("Cleared cycle list."), false);
+        player.sendMessage(createText("Cleared cycle list."), false);
     }
 
     /**
@@ -350,7 +408,7 @@ public class ServerSpectateManager {
     public void setCycleInterval(ServerPlayerEntity player, long intervalSeconds) {
         PlayerCycleSession session = cycleSessions.computeIfAbsent(player.getUuid(), k -> new PlayerCycleSession());
         session.setInterval(intervalSeconds);
-        player.sendMessage(Text.literal("Set cycle interval to " + intervalSeconds + " seconds."), false);
+        player.sendMessage(createText("Set cycle interval to " + intervalSeconds + " seconds."), false);
     }
 
     /**
@@ -359,7 +417,7 @@ public class ServerSpectateManager {
     public void startCycle(ServerPlayerEntity player) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session == null || session.isEmpty()) {
-            player.sendMessage(Text.literal("Cycle list is empty. Add points with /cspectate cycle add <name>"), false);
+            player.sendMessage(createText("Cycle list is empty. Add points with /cspectate cycle add <name>"), false);
             return;
         }
         
@@ -388,7 +446,7 @@ public class ServerSpectateManager {
             });
         }, session.intervalSeconds, session.intervalSeconds, TimeUnit.SECONDS);
         
-        player.sendMessage(Text.literal("Started cycle with " + session.pointList.size() + " points, interval: " + session.intervalSeconds + "s"), false);
+        player.sendMessage(createText("Started cycle with " + session.pointList.size() + " points, interval: " + session.intervalSeconds + "s"), false);
     }
 
     /**
@@ -409,7 +467,7 @@ public class ServerSpectateManager {
         
         // 启动循环
         if (session.isEmpty()) {
-            player.sendMessage(Text.literal("Cycle list is empty"), false);
+            player.sendMessage(createText("Cycle list is empty"), false);
             return;
         }
         
@@ -431,7 +489,7 @@ public class ServerSpectateManager {
         if (session == null) return;
         
         if (session.pointList.isEmpty()) {
-            player.sendMessage(Text.literal("Cycle list is empty."), false);
+            player.sendMessage(createText("Cycle list is empty."), false);
             return;
         }
         
@@ -440,7 +498,7 @@ public class ServerSpectateManager {
             String targetName = name.substring("player:".length());
             ServerPlayerEntity target = player.getServer().getPlayerManager().getPlayer(targetName);
             if (target == null) {
-                player.sendMessage(Text.literal("Player not online: " + targetName), false);
+                player.sendMessage(createText("Player not online: " + targetName), false);
                 return;
             }
             spectatePlayer(player, target);
@@ -449,7 +507,7 @@ public class ServerSpectateManager {
         
         SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
         if (point == null) {
-            player.sendMessage(Text.literal("Point not found in cycle: " + name), false);
+            player.sendMessage(createText("Point not found in cycle: " + name), false);
             return;
         }
         
@@ -466,7 +524,7 @@ public class ServerSpectateManager {
         
         // 如果不在循环模式且已有观察会话，提示错误
         if (!inCycleMode && activeSpectations.containsKey(viewer.getUuid())) {
-            viewer.sendMessage(Text.literal("Already spectating. Use /cspectate stop first."), false);
+            viewer.sendMessage(createText("Already spectating. Use /cspectate stop first."), false);
             return;
         }
         
@@ -484,9 +542,9 @@ public class ServerSpectateManager {
         if (server == null) return;
         
         server.execute(() -> {
-            viewer.changeGameMode(GameMode.SPECTATOR);
+            changeGameMode(viewer, GameMode.SPECTATOR);
             viewer.setCameraEntity(target);
-            viewer.sendMessage(Text.literal("Now spectating player: " + target.getName().getString()), false);
+            viewer.sendMessage(createText("Now spectating player: " + target.getName().getString()), false);
         });
     }
 
@@ -511,14 +569,14 @@ public class ServerSpectateManager {
     public void nextCyclePoint(ServerPlayerEntity player) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session == null || !session.running || session.isEmpty()) {
-            player.sendMessage(Text.literal("You are not in cycle mode or your cycle list is empty."), false);
+            player.sendMessage(createText("You are not in cycle mode or your cycle list is empty."), false);
             return;
         }
         
         // 切换到下一个点
         session.index = (session.index + 1) % session.pointList.size();
         switchToCurrentCyclePoint(player);
-        player.sendMessage(Text.literal("Switched to next point: " + (session.index + 1) + "/" + session.pointList.size()), false);
+        player.sendMessage(createText("Switched to next point: " + (session.index + 1) + "/" + session.pointList.size()), false);
     }
 
     // 内部使用的自动切换方法

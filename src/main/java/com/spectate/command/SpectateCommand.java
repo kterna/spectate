@@ -10,12 +10,14 @@ import com.spectate.service.SpectatePointManager;
 import com.spectate.service.ServerSpectateManager;
 //#if MC >= 11900
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.text.Text;
 //#else
 import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
 //#endif
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.command.CommandSource;
 import java.util.Arrays;
@@ -29,6 +31,24 @@ import java.util.List;
  * 负责注册 /cspectate points 系列命令。
  */
 public class SpectateCommand {
+
+    // Helper method for cross-version Text creation
+    private static Text createText(String message) {
+//#if MC >= 11900
+        return Text.literal(message);
+//#else
+        return new LiteralText(message);
+//#endif
+    }
+
+    // Helper method for cross-version sendFeedback
+    private static void sendFeedback(ServerCommandSource source, Text text, boolean broadcastToOps) {
+//#if MC >= 11900
+        source.sendFeedback(() -> text, broadcastToOps);
+//#else
+        source.sendFeedback(text, broadcastToOps);
+//#endif
+    }
 
     public static void register() {
 //#if MC >= 11900
@@ -67,10 +87,10 @@ public class SpectateCommand {
                         .executes(ctx -> {
                             String name = StringArgumentType.getString(ctx, "name");
                             if (SpectatePointManager.getInstance().removePoint(name) != null) {
-                                ctx.getSource().sendFeedback(() -> Text.literal("Removed point " + name), false);
+                                sendFeedback(ctx.getSource(), createText("Removed point " + name), false);
                                 return 1;
                             } else {
-                                ctx.getSource().sendError(Text.literal("Point not found: " + name));
+                                ctx.getSource().sendError(createText("Point not found: " + name));
                                 return 0;
                             }
                         })));
@@ -78,8 +98,9 @@ public class SpectateCommand {
         // list
         points.then(CommandManager.literal("list")
                 .executes(ctx -> {
-                    ctx.getSource().sendFeedback(() -> Text.literal("Spectate Points:"), false);
-                    SpectatePointManager.getInstance().listPointNames().forEach(name -> ctx.getSource().sendFeedback(() -> Text.literal(" - " + name), false));
+                    sendFeedback(ctx.getSource(), createText("Spectate Points:"), false);
+                    SpectatePointManager.getInstance().listPointNames().forEach(name ->
+                        sendFeedback(ctx.getSource(), createText(" - " + name), false));
                     return 1;
                 }));
 
@@ -99,7 +120,7 @@ public class SpectateCommand {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), 20, 0, 0.1, name);
             SpectatePointManager.getInstance().addPoint(name, data);
-            ctx.getSource().sendFeedback(() -> Text.literal("Added spectate point " + name), false);
+            sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
             return 1;
         });
 
@@ -111,7 +132,7 @@ public class SpectateCommand {
             double distance = DoubleArgumentType.getDouble(ctx, "distance");
             SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), distance, 0, 0.1, name);
             SpectatePointManager.getInstance().addPoint(name, data);
-            ctx.getSource().sendFeedback(() -> Text.literal("Added spectate point " + name), false);
+            sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
             return 1;
         });
 
@@ -149,7 +170,7 @@ public class SpectateCommand {
                     String desc = StringArgumentType.getString(ctx, "description");
                     SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), dist, height, rot, desc);
                     SpectatePointManager.getInstance().addPoint(name, data);
-                    ctx.getSource().sendFeedback(() -> Text.literal("Added spectate point " + name), false);
+                    sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
                     return 1;
                 });
 
@@ -170,7 +191,7 @@ public class SpectateCommand {
                             String name = StringArgumentType.getString(ctx, "name");
                             SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
                             if(point==null){
-                                ctx.getSource().sendError(Text.literal("Unknown point: "+name));
+                                ctx.getSource().sendError(createText("Unknown point: "+name));
                                 return 0;
                             }
                             ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point);
@@ -231,13 +252,13 @@ public class SpectateCommand {
                     ServerPlayerEntity player = ctx.getSource().getPlayer();
                     List<String> points = ServerSpectateManager.getInstance().listCyclePoints(player);
                     if (points.isEmpty()) {
-                        ctx.getSource().sendFeedback(() -> Text.literal("Your cycle list is empty."), false);
+                        sendFeedback(ctx.getSource(), createText("Your cycle list is empty."), false);
                     } else {
-                        ctx.getSource().sendFeedback(() -> Text.literal("Your cycle list:"), false);
+                        sendFeedback(ctx.getSource(), createText("Your cycle list:"), false);
                         int index = 1;
                         for (String point : points) {
                             final int i = index++;
-                            ctx.getSource().sendFeedback(() -> Text.literal(i + ". " + point), false);
+                            sendFeedback(ctx.getSource(), createText(i + ". " + point), false);
                         }
                     }
                     return 1;
@@ -292,7 +313,7 @@ public class SpectateCommand {
                             String targetName = StringArgumentType.getString(ctx, "target");
                             ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
                             if(target==null){
-                                ctx.getSource().sendError(Text.literal("Player not found: "+targetName));
+                                ctx.getSource().sendError(createText("Player not found: "+targetName));
                                 return 0;
                             }
                             ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target);
