@@ -9,8 +9,8 @@ import net.minecraft.server.world.ServerWorld;
 //#if MC >= 11900
 import net.minecraft.text.Text;
 //#else
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.Text;
+//$$import net.minecraft.text.LiteralText;
+//$$import net.minecraft.text.Text;
 //#endif
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -41,7 +41,7 @@ public class ServerSpectateManager {
 //#if MC >= 11900
         return Text.literal(message);
 //#else
-        return new LiteralText(message);
+        //$$return new LiteralText(message);
 //#endif
     }
 
@@ -50,7 +50,7 @@ public class ServerSpectateManager {
 //#if MC >= 11900
         return player.getYaw();
 //#else
-        return player.yaw;
+        //$$return player.yaw;
 //#endif
     }
 
@@ -58,7 +58,7 @@ public class ServerSpectateManager {
 //#if MC >= 11900
         return player.getPitch();
 //#else
-        return player.pitch;
+        //$$return player.pitch;
 //#endif
     }
 
@@ -67,7 +67,7 @@ public class ServerSpectateManager {
 //#if MC >= 11900
         player.changeGameMode(gameMode);
 //#else
-        player.setGameMode(gameMode);
+        //$$player.setGameMode(gameMode);
 //#endif
     }
 
@@ -76,7 +76,7 @@ public class ServerSpectateManager {
 //#if MC >= 11900
         player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch, false);
 //#else
-        player.teleport(world, x, y, z, yaw, pitch);
+        //$$player.teleport(world, x, y, z, yaw, pitch);
 //#endif
     }
 
@@ -85,7 +85,7 @@ public class ServerSpectateManager {
 //#if MC >= 11900
         return player.isRemoved();
 //#else
-        return player.removed;
+        //$$return player.removed;
 //#endif
     }
 
@@ -176,7 +176,7 @@ public class ServerSpectateManager {
 
         PlayerCycleSession() {
             this.pointList = new java.util.ArrayList<>();
-            this.intervalSeconds = 10; // 默认10秒
+            this.intervalSeconds = 600;
             this.index = 0;
             this.running = false;
         }

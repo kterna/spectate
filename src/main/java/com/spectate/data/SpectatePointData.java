@@ -31,10 +31,10 @@ public class SpectatePointData {
     }
 
     /**
-     * 兼容旧代码的构造函数，默认旋转速度 0.1°/s。
+     * 兼容旧代码的构造函数，默认旋转速度 1°/s。
      */
     public SpectatePointData(BlockPos position, double distance, double heightOffset, String description) {
-        this(position, distance, heightOffset, 0.1, description);
+        this(position, distance, heightOffset, 1, description);
     }
 
     public BlockPos getPosition() {

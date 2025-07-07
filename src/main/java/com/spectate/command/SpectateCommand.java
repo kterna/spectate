@@ -12,9 +12,9 @@ import com.spectate.service.ServerSpectateManager;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.text.Text;
 //#else
-import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.Text;
+//$$import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+//$$import net.minecraft.text.LiteralText;
+//$$import net.minecraft.text.Text;
 //#endif
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -37,7 +37,7 @@ public class SpectateCommand {
 //#if MC >= 11900
         return Text.literal(message);
 //#else
-        return new LiteralText(message);
+        //$$return new LiteralText(message);
 //#endif
     }
 
@@ -46,7 +46,7 @@ public class SpectateCommand {
 //#if MC >= 11900
         source.sendFeedback(() -> text, broadcastToOps);
 //#else
-        source.sendFeedback(text, broadcastToOps);
+        //$$source.sendFeedback(text, broadcastToOps);
 //#endif
     }
 
@@ -55,8 +55,8 @@ public class SpectateCommand {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
                 registerRoot(dispatcher));
 //#else
-        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) ->
-                registerRoot(dispatcher));
+        //$$CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) ->
+        //$$        registerRoot(dispatcher));
 //#endif
     }
 
@@ -118,7 +118,7 @@ public class SpectateCommand {
         posArg.executes(ctx -> {
             String name = StringArgumentType.getString(ctx, "name");
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
-            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), 20, 0, 0.1, name);
+            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), 20, 0, 1, name);
             SpectatePointManager.getInstance().addPoint(name, data);
             sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
             return 1;
@@ -130,7 +130,7 @@ public class SpectateCommand {
             String name = StringArgumentType.getString(ctx, "name");
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double distance = DoubleArgumentType.getDouble(ctx, "distance");
-            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), distance, 0, 0.1, name);
+            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), distance, 0, 1, name);
             SpectatePointManager.getInstance().addPoint(name, data);
             sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
             return 1;
@@ -144,7 +144,7 @@ public class SpectateCommand {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double dist = DoubleArgumentType.getDouble(ctx, "distance");
             double h = DoubleArgumentType.getDouble(ctx, "heightOffset");
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, 0.1);
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, 1);
             return 1;
         });
 
@@ -346,7 +346,7 @@ public class SpectateCommand {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double dist = DoubleArgumentType.getDouble(ctx, "distance");
             double h = DoubleArgumentType.getDouble(ctx, "heightOffset");
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, 0.1);
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, 1);
             return 1;
         });
 
