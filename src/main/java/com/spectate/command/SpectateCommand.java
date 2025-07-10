@@ -61,8 +61,7 @@ public class SpectateCommand {
     }
 
     private static void registerRoot(CommandDispatcher<ServerCommandSource> dispatcher) {
-        LiteralArgumentBuilder<ServerCommandSource> root = CommandManager.literal("cspectate")
-                .requires(src -> src.hasPermissionLevel(2));
+        LiteralArgumentBuilder<ServerCommandSource> root = CommandManager.literal("cspectate");
 
         root.then(buildPointsCommand());
         root.then(buildPointCommand());

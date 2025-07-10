@@ -554,7 +554,7 @@ public class ServerSpectateManager {
      * 观察任意坐标
      */
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height) {
-        spectateCoords(player, x, y, z, distance, height, 0.1);
+        spectateCoords(player, x, y, z, distance, height, 1);
     }
 
     /**
@@ -645,7 +645,7 @@ public class ServerSpectateManager {
                             double x = Double.parseDouble(parts[0]);
                             double y = Double.parseDouble(parts[1]);
                             double z = Double.parseDouble(parts[2]);
-                            spectateCoords(player, x, y, z, 10, 3, 0.1); // Default values
+                            spectateCoords(player, x, y, z, 10, 3, 1); // Default values
                         } catch (Exception e) {
                             // ignore
                         }
