@@ -26,6 +26,8 @@ public class SpectateMod implements ModInitializer {
         // 记录服务器实例，供其他单例使用
         ServerLifecycleEvents.SERVER_STARTED.register(srv -> {
             server = srv;
+            // Load all persisted data from files
+            com.spectate.data.SpectateStateSaver.getInstance().initialize();
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(srv -> server = null);
 

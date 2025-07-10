@@ -41,9 +41,41 @@ public class SpectateStateSaver {
 
     private SpectateStateSaver() {
         Path configDir = FabricLoader.getInstance().getConfigDir();
-        this.pointsFile = configDir.resolve(POINTS_FILE_NAME);
-        this.cycleFile = configDir.resolve(CYCLE_FILE_NAME);
-        this.playerStatesFile = configDir.resolve(PLAYER_STATES_FILE_NAME);
+        Path spectateDir = configDir.resolve("spectate"); // Create a dedicated subdirectory
+        try {
+            Files.createDirectories(spectateDir);
+        } catch (IOException e) {
+            System.err.println("[Spectate] Failed to create config directory: " + spectateDir);
+            e.printStackTrace();
+        }
+        this.pointsFile = spectateDir.resolve(POINTS_FILE_NAME);
+        this.cycleFile = spectateDir.resolve(CYCLE_FILE_NAME);
+        this.playerStatesFile = spectateDir.resolve(PLAYER_STATES_FILE_NAME);
+    }
+
+    /**
+     * Initializes the state saver by loading all data from disk.
+     * This should be called once when the server starts.
+     */
+    public void initialize() {
+        try {
+            loadPoints();
+        } catch (IOException e) {
+            System.err.println("[Spectate] Failed to load spectate points.");
+            e.printStackTrace();
+        }
+        try {
+            loadCycles();
+        } catch (IOException e) {
+            System.err.println("[Spectate] Failed to load cycle lists.");
+            e.printStackTrace();
+        }
+        try {
+            loadPlayerStates();
+        } catch (IOException e) {
+            System.err.println("[Spectate] Failed to load player states.");
+            e.printStackTrace();
+        }
     }
 
     /* ------------------- 观察点 ------------------- */

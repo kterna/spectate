@@ -168,12 +168,12 @@ public class SpectateSessionManager {
 
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force) {
         if (point == null) {
-            player.sendMessage(createText("Spectate point data is null."), false);
+            player.sendMessage(createText("观察点数据为空。"), false);
             return;
         }
 
         if (!force && isSpectating(player.getUuid())) {
-            player.sendMessage(createText("Already spectating. Use /cspectate stop first."), false);
+            player.sendMessage(createText("已在观察中。请先使用 /cspectate stop 停止。"), false);
             return;
         }
 
@@ -188,7 +188,7 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             changeGameMode(player, GameMode.SPECTATOR);
-            player.sendMessage(createText("Now spectating point: " + point.getDescription()), false);
+            player.sendMessage(createText("正在观察点: " + point.getDescription()), false);
             updateOrbitingPosition(player, session, 0);
 
             double speedDeg = point.getRotationSpeed();
@@ -232,7 +232,7 @@ public class SpectateSessionManager {
 
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force) {
         if (!force && isSpectating(viewer.getUuid())) {
-            viewer.sendMessage(createText("Already spectating. Use /cspectate stop first."), false);
+            viewer.sendMessage(createText("已在观察中。请先使用 /cspectate stop 停止。"), false);
             return;
         }
 
@@ -248,7 +248,7 @@ public class SpectateSessionManager {
         server.execute(() -> {
             changeGameMode(viewer, GameMode.SPECTATOR);
             viewer.setCameraEntity(target);
-            viewer.sendMessage(createText("Now spectating player: " + target.getName().getString()), false);
+            viewer.sendMessage(createText("正在观察玩家: " + target.getName().getString()), false);
         });
     }
 
@@ -267,7 +267,7 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             originalState.restore(player);
-            player.sendMessage(createText("Stopped spectating."), false);
+            player.sendMessage(createText("已停止观察。"), false);
         });
         return true;
     }

@@ -30,14 +30,6 @@ public class CycleService {
 
     private CycleService() {}
 
-    // Helper method for cross-version Text creation
-    private static Text createText(String message) {
-        //#if MC >= 11900
-        return Text.literal(message);
-        //#else
-        //$$return new net.minecraft.text.LiteralText(message);
-        //#endif
-    }
 
     public ScheduledExecutorService getScheduler() {
         return scheduler;
@@ -101,18 +93,27 @@ public class CycleService {
         return cycleSessions.computeIfAbsent(playerId, k -> new PlayerCycleSession());
     }
 
+    // Helper method for cross-version Text creation
+    private static Text createText(String message) {
+        //#if MC >= 11900
+        return Text.literal(message);
+        //#else
+        //$$return new net.minecraft.text.LiteralText(message);
+        //#endif
+    }
+
     public void addCyclePoint(ServerPlayerEntity player, String pointName) {
         getOrCreateSession(player.getUuid()).addPoint(pointName);
-        player.sendMessage(createText("Added '" + pointName + "' to cycle list."), false);
+        player.sendMessage(createText("已添加至循环: " + pointName), false);
     }
 
     public void removeCyclePoint(ServerPlayerEntity player, String pointName) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null) {
             session.removePoint(pointName);
-            player.sendMessage(createText("Removed '" + pointName + "' from cycle list."), false);
+            player.sendMessage(createText("已从循环中移除: " + pointName), false);
         } else {
-            player.sendMessage(createText("You don't have a cycle list."), false);
+            player.sendMessage(createText("您没有设置循环列表。"), false);
         }
     }
 
@@ -120,9 +121,9 @@ public class CycleService {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null) {
             session.clearPoints();
-            player.sendMessage(createText("Cleared cycle list."), false);
+            player.sendMessage(createText("已清空循环列表。"), false);
         } else {
-            player.sendMessage(createText("You don't have a cycle list."), false);
+            player.sendMessage(createText("您没有设置循环列表。"), false);
         }
     }
 
@@ -133,13 +134,13 @@ public class CycleService {
 
     public void setCycleInterval(ServerPlayerEntity player, long intervalSeconds) {
         getOrCreateSession(player.getUuid()).setInterval(intervalSeconds);
-        player.sendMessage(createText("Set cycle interval to " + intervalSeconds + " seconds."), false);
+        player.sendMessage(createText("循环间隔已设为 " + intervalSeconds + " 秒。"), false);
     }
 
     public void startCycle(ServerPlayerEntity player) {
         PlayerCycleSession session = getOrCreateSession(player.getUuid());
         if (session.isEmpty()) {
-            player.sendMessage(createText("Cycle list is empty. Add points with /cspectate cycle add <name>"), false);
+            player.sendMessage(createText("循环列表为空。请使用 /cspectate cycle add <名称> 添加观察点。"), false);
             return;
         }
 
@@ -150,7 +151,7 @@ public class CycleService {
         session.start();
         
         // Announce start
-        player.sendMessage(createText("Started cycle with " + session.pointList.size() + " points, interval: " + session.intervalSeconds + "s"), false);
+        player.sendMessage(createText("已开始观察循环。"), false);
 
         // Switch to the first point immediately
         ServerSpectateManager.getInstance().switchToCyclePoint(player);
@@ -180,7 +181,7 @@ public class CycleService {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session == null || !session.running || session.isEmpty()) {
             if (!isAuto) {
-                player.sendMessage(createText("You are not in cycle mode or your cycle list is empty."), false);
+                player.sendMessage(createText("您不在循环模式中，或您的循环列表为空。"), false);
             }
             return;
         }
@@ -189,7 +190,7 @@ public class CycleService {
         ServerSpectateManager.getInstance().switchToCyclePoint(player);
 
         if (!isAuto) {
-            player.sendMessage(createText("Switched to next point: " + (session.index + 1) + "/" + session.pointList.size()), false);
+            player.sendMessage(createText("已切换至下个观察点: " + (session.index + 1) + "/" + session.pointList.size()), false);
         }
     }
 
