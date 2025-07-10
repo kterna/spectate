@@ -20,6 +20,7 @@ public class SpectateStateSaver {
 
     private static final String POINTS_FILE_NAME = "spectate_points.properties";
     private static final String CYCLE_FILE_NAME = "cycle_lists.properties";
+    private static final String PLAYER_STATES_FILE_NAME = "player_spectate_states.properties";
 
     private static final SpectateStateSaver INSTANCE = new SpectateStateSaver();
 
@@ -31,14 +32,18 @@ public class SpectateStateSaver {
     private final Map<String, SpectatePointData> pointCache = new ConcurrentHashMap<>();
     // 玩家循环列表缓存：玩家UUID字符串 -> 点名称列表
     private final Map<String, List<String>> cycleCache = new ConcurrentHashMap<>();
+    // 玩家观察状态缓存：玩家UUID字符串 -> 状态字符串
+    private final Map<String, String> playerStateCache = new ConcurrentHashMap<>();
 
     private final Path pointsFile;
     private final Path cycleFile;
+    private final Path playerStatesFile;
 
     private SpectateStateSaver() {
         Path configDir = FabricLoader.getInstance().getConfigDir();
         this.pointsFile = configDir.resolve(POINTS_FILE_NAME);
         this.cycleFile = configDir.resolve(CYCLE_FILE_NAME);
+        this.playerStatesFile = configDir.resolve(PLAYER_STATES_FILE_NAME);
 
         try {
             loadPoints();
@@ -52,15 +57,27 @@ public class SpectateStateSaver {
         } catch (IOException e) {
             // ignore, empty by default
         }
+
+        try {
+            loadPlayerStates();
+        } catch (IOException e) {
+            // ignore, empty by default
+        }
     }
 
     /* ------------------- 观察点 ------------------- */
 
-    public synchronized void addSpectatePoint(String name, SpectatePointData data) {
+    public synchronized void addSpectatePoint(String name, SpectatePointData data, boolean save) {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(data, "data");
         pointCache.put(name, data);
-        savePoints();
+        if (save) {
+            savePoints();
+        }
+    }
+
+    public synchronized void addSpectatePoint(String name, SpectatePointData data) {
+        addSpectatePoint(name, data, true);
     }
 
     public synchronized SpectatePointData removeSpectatePoint(String name) {
@@ -89,6 +106,26 @@ public class SpectateStateSaver {
 
     public List<String> getPlayerCycleList(UUID playerUUID) {
         return cycleCache.getOrDefault(playerUUID.toString(), Collections.emptyList());
+    }
+
+    /* ------------------- 玩家状态 ------------------- */
+
+    public synchronized void savePlayerState(UUID playerUUID, String state) {
+        Objects.requireNonNull(playerUUID, "playerUUID");
+        Objects.requireNonNull(state, "state");
+        playerStateCache.put(playerUUID.toString(), state);
+        savePlayerStates();
+    }
+
+    public synchronized void removePlayerState(UUID playerUUID) {
+        Objects.requireNonNull(playerUUID, "playerUUID");
+        if (playerStateCache.remove(playerUUID.toString()) != null) {
+            savePlayerStates();
+        }
+    }
+
+    public String getPlayerState(UUID playerUUID) {
+        return playerStateCache.get(playerUUID.toString());
     }
 
     /* ------------------- 内部加载 / 保存 ------------------- */
@@ -163,6 +200,34 @@ public class SpectateStateSaver {
         }
     }
 
+    private void loadPlayerStates() throws IOException {
+        if (!Files.exists(playerStatesFile)) {
+            return;
+        }
+        Properties props = new Properties();
+        try (FileInputStream fis = new FileInputStream(playerStatesFile.toFile())) {
+            props.load(fis);
+        }
+        for (String key : props.stringPropertyNames()) {
+            playerStateCache.put(key, props.getProperty(key));
+        }
+    }
+
+    private void savePlayerStates() {
+        Properties props = new Properties();
+        for (Map.Entry<String, String> entry : playerStateCache.entrySet()) {
+            props.setProperty(entry.getKey(), entry.getValue());
+        }
+        try {
+            Files.createDirectories(playerStatesFile.getParent());
+            try (FileOutputStream fos = new FileOutputStream(playerStatesFile.toFile())) {
+                props.store(fos, "Player Spectate States");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     /* ------------------- 序列化帮助 ------------------- */
 
     private static String serializePoint(SpectatePointData data) {
@@ -214,4 +279,4 @@ public class SpectateStateSaver {
         }
         return sb.toString();
     }
-} 
+}

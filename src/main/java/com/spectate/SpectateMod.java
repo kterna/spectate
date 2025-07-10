@@ -1,7 +1,9 @@
 package com.spectate;
 
+import com.spectate.service.ServerSpectateManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import com.spectate.command.SpectateCommand;
 
@@ -29,5 +31,14 @@ public class SpectateMod implements ModInitializer {
 
         // 注册命令
         SpectateCommand.register();
+
+        // 注册玩家事件
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            ServerSpectateManager.getInstance().onPlayerDisconnect(handler.player);
+        });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerSpectateManager.getInstance().onPlayerConnect(handler.player);
+        });
     }
 }

@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 import com.spectate.service.SpectatePointManager;
 import net.minecraft.entity.Entity;
 
+import com.spectate.data.SpectateStateSaver;
+
 /**
  * ServerSpectateManager 管理所有动态会话和观察逻辑。
  */
@@ -124,13 +126,13 @@ public class ServerSpectateManager {
     private static class SpectateSession {
         private final long startTime;
         private ScheduledFuture<?> orbitFuture;
-        private SpectatePointData point; // 如果是观察点
+        private String pointName; // 如果是观察点
         private ServerPlayerEntity targetPlayer; // 如果是观察玩家
         private final boolean isPoint; // true=观察点，false=观察玩家
         
         // 创建观察点会话
-        SpectateSession(SpectatePointData point) {
-            this.point = point;
+        SpectateSession(String pointName) {
+            this.pointName = pointName;
             this.isPoint = true;
             this.startTime = System.currentTimeMillis();
         }
@@ -153,8 +155,8 @@ public class ServerSpectateManager {
             return isPoint;
         }
         
-        SpectatePointData getPoint() {
-            return point;
+        String getPointName() {
+            return pointName;
         }
         
         ServerPlayerEntity getTargetPlayer() {
@@ -255,7 +257,13 @@ public class ServerSpectateManager {
     /**
      * 开始观察指定坐标点
      */
-    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point) {
+    public void spectatePoint(ServerPlayerEntity player, String pointName) {
+        SpectatePointData point = SpectatePointManager.getInstance().getPoint(pointName);
+        if (point == null) {
+            player.sendMessage(createText("Spectate point not found: " + pointName), false);
+            return;
+        }
+
         // 检查是否已经在循环模式中
         PlayerCycleSession cycleSession = cycleSessions.get(player.getUuid());
         boolean inCycleMode = cycleSession != null && cycleSession.running;
@@ -273,7 +281,7 @@ public class ServerSpectateManager {
         cancelCurrentSpectation(player);
         
         // 创建新的观察会话
-        SpectateSession session = new SpectateSession(point);
+        SpectateSession session = new SpectateSession(pointName);
         activeSpectations.put(player.getUuid(), session);
         
         MinecraftServer server = SpectateMod.getServer();
@@ -505,13 +513,7 @@ public class ServerSpectateManager {
             return;
         }
         
-        SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
-        if (point == null) {
-            player.sendMessage(createText("Point not found in cycle: " + name), false);
-            return;
-        }
-        
-        spectatePoint(player, point);
+        spectatePoint(player, name);
     }
 
     /**
@@ -559,8 +561,10 @@ public class ServerSpectateManager {
      * 观察任意坐标（可指定旋转速度）
      */
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height, double rotation) {
-        SpectatePointData data = new SpectatePointData(new BlockPos((int)x,(int)y,(int)z), distance, height, rotation, String.format("coords(%.0f,%.0f,%.0f)",x,y,z));
-        spectatePoint(player, data);
+        String pointName = String.format("coords(%.0f,%.0f,%.0f)",x,y,z);
+        SpectatePointData data = new SpectatePointData(new BlockPos((int)x,(int)y,(int)z), distance, height, rotation, pointName);
+        SpectatePointManager.getInstance().addTempPoint(pointName, data);
+        spectatePoint(player, pointName);
     }
 
     /**
@@ -585,5 +589,77 @@ public class ServerSpectateManager {
         if (session == null) return;
         session.index = (session.index + 1) % session.pointList.size();
         switchToCurrentCyclePoint(player);
+    }
+    public void onPlayerDisconnect(ServerPlayerEntity player) {
+        UUID playerId = player.getUuid();
+        if (!isSpectating(player)) {
+            return;
+        }
+
+        // 获取当前观察会话
+        SpectateSession session = activeSpectations.get(playerId);
+        if (session == null) {
+            return;
+        }
+
+        // 序列化状态
+        String state;
+        if (session.isObservingPoint()) {
+            state = "point:" + session.getPointName();
+        } else if (session.getTargetPlayer() != null && !isPlayerRemoved(session.getTargetPlayer())) {
+            state = "player:" + session.getTargetPlayer().getUuidAsString();
+        } else {
+            // 如果目标玩家也下线了，或者状态未知，则不保存，直接结束观察
+            session.cancel();
+            activeSpectations.remove(playerId);
+            playerOriginalStates.remove(playerId);
+            return;
+        }
+
+        // 保存状态
+        SpectateStateSaver.getInstance().savePlayerState(playerId, state);
+
+        // 清理内存中的会话信息，因为状态已经持久化
+        session.cancel();
+        activeSpectations.remove(playerId);
+        playerOriginalStates.remove(playerId);
+    }
+
+    public void onPlayerConnect(ServerPlayerEntity player) {
+        UUID playerId = player.getUuid();
+        String state = SpectateStateSaver.getInstance().getPlayerState(playerId);
+
+        if (state != null) {
+            SpectateStateSaver.getInstance().removePlayerState(playerId); // 用后即焚
+
+            MinecraftServer server = SpectateMod.getServer();
+            if (server == null) return;
+
+            server.execute(() -> {
+                if (state.startsWith("point:")) {
+                    String pointName = state.substring("point:".length());
+                    if (pointName.startsWith("coords(")) {
+                        // Recreate temporary coordinate point
+                        try {
+                            String[] parts = pointName.replace("coords(", "").replace(")", "").split(",");
+                            double x = Double.parseDouble(parts[0]);
+                            double y = Double.parseDouble(parts[1]);
+                            double z = Double.parseDouble(parts[2]);
+                            spectateCoords(player, x, y, z, 10, 3, 0.1); // Default values
+                        } catch (Exception e) {
+                            // ignore
+                        }
+                    } else {
+                        spectatePoint(player, pointName);
+                    }
+                } else if (state.startsWith("player:")) {
+                    UUID targetId = UUID.fromString(state.substring("player:".length()));
+                    ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetId);
+                    if (target != null) {
+                        spectatePlayer(player, target);
+                    }
+                }
+            });
+        }
     }
 }

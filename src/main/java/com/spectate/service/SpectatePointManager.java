@@ -48,4 +48,9 @@ public class SpectatePointManager {
         saver.addSpectatePoint(name, newData);
         return true;
     }
+    public void addTempPoint(String name, SpectatePointData data) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(data, "data");
+        saver.addSpectatePoint(name, data, false); // Do not save to disk
+    }
 } 
