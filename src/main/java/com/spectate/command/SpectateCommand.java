@@ -193,7 +193,7 @@ public class SpectateCommand {
                                 ctx.getSource().sendError(createText("Unknown point: "+name));
                                 return 0;
                             }
-                            ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), name);
+                            ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point);
                             return 1;
                         }));
     }

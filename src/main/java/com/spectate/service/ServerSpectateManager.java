@@ -126,13 +126,13 @@ public class ServerSpectateManager {
     private static class SpectateSession {
         private final long startTime;
         private ScheduledFuture<?> orbitFuture;
-        private String pointName; // 如果是观察点
+        private SpectatePointData spectatePointData; // 如果是观察点
         private ServerPlayerEntity targetPlayer; // 如果是观察玩家
         private final boolean isPoint; // true=观察点，false=观察玩家
         
         // 创建观察点会话
-        SpectateSession(String pointName) {
-            this.pointName = pointName;
+        SpectateSession(SpectatePointData pointData) {
+            this.spectatePointData = pointData;
             this.isPoint = true;
             this.startTime = System.currentTimeMillis();
         }
@@ -155,16 +155,12 @@ public class ServerSpectateManager {
             return isPoint;
         }
         
-        String getPointName() {
-            return pointName;
+        SpectatePointData getSpectatePointData() {
+            return spectatePointData;
         }
         
         ServerPlayerEntity getTargetPlayer() {
             return targetPlayer;
-        }
-        
-        long getStartTime() {
-            return startTime;
         }
     }
 
@@ -257,10 +253,9 @@ public class ServerSpectateManager {
     /**
      * 开始观察指定坐标点
      */
-    public void spectatePoint(ServerPlayerEntity player, String pointName) {
-        SpectatePointData point = SpectatePointManager.getInstance().getPoint(pointName);
+    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point) {
         if (point == null) {
-            player.sendMessage(createText("Spectate point not found: " + pointName), false);
+            player.sendMessage(createText("Spectate point data is null."), false);
             return;
         }
 
@@ -281,7 +276,8 @@ public class ServerSpectateManager {
         cancelCurrentSpectation(player);
         
         // 创建新的观察会话
-        SpectateSession session = new SpectateSession(pointName);
+        SpectateSession session = new SpectateSession(point);
+        activeSpectations.put(player.getUuid(), session);
         activeSpectations.put(player.getUuid(), session);
         
         MinecraftServer server = SpectateMod.getServer();
@@ -513,7 +509,12 @@ public class ServerSpectateManager {
             return;
         }
         
-        spectatePoint(player, name);
+        SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
+        if (point == null) {
+            player.sendMessage(createText("Spectate point not found: " + name), false);
+            return;
+        }
+        spectatePoint(player, point);
     }
 
     /**
@@ -563,8 +564,7 @@ public class ServerSpectateManager {
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height, double rotation) {
         String pointName = String.format("coords(%.0f,%.0f,%.0f)",x,y,z);
         SpectatePointData data = new SpectatePointData(new BlockPos((int)x,(int)y,(int)z), distance, height, rotation, pointName);
-        SpectatePointManager.getInstance().addTempPoint(pointName, data);
-        spectatePoint(player, pointName);
+        spectatePoint(player, data);
     }
 
     /**
@@ -605,7 +605,7 @@ public class ServerSpectateManager {
         // 序列化状态
         String state;
         if (session.isObservingPoint()) {
-            state = "point:" + session.getPointName();
+            state = "point:" + session.getSpectatePointData().getDescription();
         } else if (session.getTargetPlayer() != null && !isPlayerRemoved(session.getTargetPlayer())) {
             state = "player:" + session.getTargetPlayer().getUuidAsString();
         } else {
@@ -650,7 +650,12 @@ public class ServerSpectateManager {
                             // ignore
                         }
                     } else {
-                        spectatePoint(player, pointName);
+                        SpectatePointData point = SpectatePointManager.getInstance().getPoint(pointName);
+                        if (point == null) {
+                            // Log or message that point was not found on reconnect
+                            return;
+                        }
+                        spectatePoint(player, point);
                     }
                 } else if (state.startsWith("player:")) {
                     UUID targetId = UUID.fromString(state.substring("player:".length()));
