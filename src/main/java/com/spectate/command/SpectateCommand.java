@@ -5,6 +5,8 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.spectate.config.ConfigManager;
+import com.spectate.config.SpectateConfig;
 import com.spectate.data.SpectatePointData;
 import com.spectate.service.SpectatePointManager;
 import com.spectate.service.ServerSpectateManager;
@@ -23,8 +25,10 @@ import net.minecraft.command.CommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.command.argument.Vec3ArgumentType;
 import net.minecraft.util.math.Vec3d;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 负责注册 /cspectate 系列命令。
@@ -32,22 +36,19 @@ import java.util.List;
  */
 public class SpectateCommand {
 
-    // Helper method for cross-version Text creation
-    private static Text createText(String message) {
-//#if MC >= 11900
-        return Text.literal(message);
-//#else
-        //$$return new LiteralText(message);
-//#endif
-    }
+    private static final ConfigManager CONFIG_MANAGER = ConfigManager.getInstance();
 
     // Helper method for cross-version sendFeedback
     private static void sendFeedback(ServerCommandSource source, Text text, boolean broadcastToOps) {
-//#if MC >= 11900
+        //#if MC >= 11900
         source.sendFeedback(() -> text, broadcastToOps);
-//#else
-        //$$source.sendFeedback(text, broadcastToOps);
-//#endif
+        //#else
+        //$$ source.sendFeedback(text, broadcastToOps);
+        //#endif
+    }
+
+    private static void sendError(ServerCommandSource source, Text text) {
+        source.sendError(text);
     }
 
     public static void register() {
@@ -84,9 +85,10 @@ public class SpectateCommand {
                 .executes(ctx -> {
                     String name = StringArgumentType.getString(ctx, "name");
                     Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
-                    SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), 20, 5, 1, name);
+                    SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+                    SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, name);
                     SpectatePointManager.getInstance().addPoint(name, data);
-                    sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
+                    sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                     return 1;
                 })
                 .then(CommandManager.argument("description", StringArgumentType.greedyString())
@@ -94,9 +96,10 @@ public class SpectateCommand {
                             String name = StringArgumentType.getString(ctx, "name");
                             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
                             String desc = StringArgumentType.getString(ctx, "description");
-                            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), 20, 5, 1, desc);
+                            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+                            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, desc);
                             SpectatePointManager.getInstance().addPoint(name, data);
-                            sendFeedback(ctx.getSource(), createText("Added spectate point " + name), false);
+                            sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                             return 1;
                         }));
         
@@ -109,10 +112,10 @@ public class SpectateCommand {
                         .executes(ctx -> {
                             String name = StringArgumentType.getString(ctx, "name");
                             if (SpectatePointManager.getInstance().removePoint(name) != null) {
-                                sendFeedback(ctx.getSource(), createText("Removed point " + name), false);
+                                sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_removed", Map.of("name", name)), false);
                                 return 1;
                             } else {
-                                ctx.getSource().sendError(createText("Point not found: " + name));
+                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
                                 return 0;
                             }
                         })));
@@ -120,9 +123,14 @@ public class SpectateCommand {
         // points list
         points.then(CommandManager.literal("list")
                 .executes(ctx -> {
-                    sendFeedback(ctx.getSource(), createText("Spectate Points:"), false);
-                    SpectatePointManager.getInstance().listPointNames().forEach(name ->
-                        sendFeedback(ctx.getSource(), createText(" - " + name), false));
+                    Collection<String> pointNames = SpectatePointManager.getInstance().listPointNames();
+                    if (pointNames.isEmpty()) {
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("point_list_empty"), false);
+                    } else {
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("point_list_header"), false);
+                        pointNames.forEach(name ->
+                            sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_item", Map.of("name", name)), false));
+                    }
                     return 1;
                 }));
 
@@ -137,7 +145,7 @@ public class SpectateCommand {
                             String name = StringArgumentType.getString(ctx, "name");
                             SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
                             if(point==null){
-                                ctx.getSource().sendError(createText("Unknown point: "+name));
+                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
                                 return 0;
                             }
                             ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point);
@@ -194,11 +202,11 @@ public class SpectateCommand {
                     ServerPlayerEntity player = ctx.getSource().getPlayer();
                     List<String> points = manager.listCyclePoints(player);
                     if (points.isEmpty()) {
-                        sendFeedback(ctx.getSource(), createText("Your cycle list is empty."), false);
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("cycle_list_empty"), false);
                     } else {
-                        sendFeedback(ctx.getSource(), createText("Your cycle list:"), false);
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("cycle_list_header"), false);
                         for (int i = 0; i < points.size(); i++) {
-                            sendFeedback(ctx.getSource(), createText((i + 1) + ". " + points.get(i)), false);
+                            sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("cycle_list_item", Map.of("index", String.valueOf(i + 1), "name", points.get(i))), false);
                         }
                     }
                     return 1;
@@ -244,7 +252,7 @@ public class SpectateCommand {
                             String targetName = StringArgumentType.getString(ctx, "target");
                             ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
                             if(target==null){
-                                ctx.getSource().sendError(createText("Player not found: "+targetName));
+                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
                                 return 0;
                             }
                             ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target);
@@ -258,7 +266,8 @@ public class SpectateCommand {
         // Base command: /cspectate coords <pos>
         posArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, 20.0, 5.0, 1.0);
+            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed);
             return 1;
         });
 
@@ -267,7 +276,8 @@ public class SpectateCommand {
         distArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double dist = DoubleArgumentType.getDouble(ctx, "distance");
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, 5.0, 1.0);
+            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, defaults.spectate_height_offset, defaults.spectate_rotation_speed);
             return 1;
         });
 
@@ -277,7 +287,8 @@ public class SpectateCommand {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double dist = DoubleArgumentType.getDouble(ctx, "distance");
             double h = DoubleArgumentType.getDouble(ctx, "heightOffset");
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, 1.0);
+            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, defaults.spectate_rotation_speed);
             return 1;
         });
 

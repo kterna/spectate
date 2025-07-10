@@ -38,6 +38,8 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    // Add SLF4J for logging, which is not included by default in older versions
+    modImplementation "org.slf4j:slf4j-api:1.7.32"
     // 自己的模组以来也写在这里
 }
 

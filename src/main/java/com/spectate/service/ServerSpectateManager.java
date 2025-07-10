@@ -1,5 +1,6 @@
 package com.spectate.service;
 
+import com.spectate.config.ConfigManager;
 import com.spectate.data.SpectatePointData;
 import com.spectate.data.SpectateStateSaver;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -9,6 +10,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -24,6 +26,7 @@ public class ServerSpectateManager {
     private final CycleService cycleService = CycleService.getInstance();
     private final SpectatePointManager pointManager = SpectatePointManager.getInstance();
     private final SpectateStateSaver stateSaver = SpectateStateSaver.getInstance();
+    private final ConfigManager configManager = ConfigManager.getInstance();
 
     private ServerSpectateManager() {}
 
@@ -107,19 +110,10 @@ public class ServerSpectateManager {
     /**
      * 由 CycleService 内部调用，用于切换到当前循环索引指向的点。
      */
-    // Helper method for cross-version Text creation
-    private static Text createText(String message) {
-        //#if MC >= 11900
-        return Text.literal(message);
-        //#else
-        //$$return new net.minecraft.text.LiteralText(message);
-        //#endif
-    }
-
     public void switchToCyclePoint(ServerPlayerEntity player) {
         String pointName = cycleService.getCurrentCyclePointName(player.getUuid());
         if (pointName == null) {
-            player.sendMessage(createText("循环列表为空或无效。"), false);
+            player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
             return;
         }
 
@@ -127,14 +121,14 @@ public class ServerSpectateManager {
             String targetName = pointName.substring("player:".length());
             ServerPlayerEntity target = player.getServer().getPlayerManager().getPlayer(targetName);
             if (target == null) {
-                player.sendMessage(createText("玩家不在线: " + targetName), false);
+                player.sendMessage(configManager.getFormattedMessage("player_not_found", Map.of("name", targetName)), false);
             } else {
                 sessionManager.spectatePlayer(player, target, true); // Force switch
             }
         } else {
             SpectatePointData point = pointManager.getPoint(pointName);
             if (point == null) {
-                player.sendMessage(createText("未找到观察点: " + pointName), false);
+                player.sendMessage(configManager.getFormattedMessage("point_not_found", Map.of("name", pointName)), false);
             } else {
                 sessionManager.spectatePoint(player, point, true); // Force switch
             }
@@ -170,7 +164,7 @@ public class ServerSpectateManager {
                 BlockPos spawnPoint = world.getSpawnPos();
                 SpectateSessionManager.teleportPlayer(player, world, spawnPoint.getX() + 0.5, spawnPoint.getY(), spawnPoint.getZ() + 0.5, 0, 0);
 
-                player.sendMessage(createText("您之前的观察会话因服务器重启而终止。"), false);
+                player.sendMessage(configManager.getMessage("spectate_stop"), false);
             });
         }
     }

@@ -1,6 +1,7 @@
 package com.spectate.service;
 
 import com.spectate.SpectateMod;
+import com.spectate.config.ConfigManager;
 import com.spectate.data.SpectatePointData;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.MinecraftServer;
@@ -29,19 +30,12 @@ public class SpectateSessionManager {
     private final Map<UUID, PlayerOriginalState> playerOriginalStates = new ConcurrentHashMap<>();
     private final Map<UUID, SpectateSession> activeSpectations = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler;
+    private final ConfigManager configManager = ConfigManager.getInstance();
 
     private SpectateSessionManager() {
         this.scheduler = CycleService.getInstance().getScheduler();
     }
 
-    // Helper methods for cross-version compatibility
-    private static Text createText(String message) {
-        //#if MC >= 11900
-        return Text.literal(message);
-        //#else
-        //$$return new net.minecraft.text.LiteralText(message);
-        //#endif
-    }
 
     private static float getPlayerYaw(ServerPlayerEntity player) {
         //#if MC >= 11900
@@ -168,12 +162,13 @@ public class SpectateSessionManager {
 
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force) {
         if (point == null) {
-            player.sendMessage(createText("观察点数据为空。"), false);
+            // This case should ideally not happen if called from commands, more of a safeguard.
+            player.sendMessage(configManager.getMessage("point_not_found"), false);
             return;
         }
 
         if (!force && isSpectating(player.getUuid())) {
-            player.sendMessage(createText("已在观察中。请先使用 /cspectate stop 停止。"), false);
+            player.sendMessage(configManager.getMessage("spectate_already_running"), false);
             return;
         }
 
@@ -188,7 +183,7 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             changeGameMode(player, GameMode.SPECTATOR);
-            player.sendMessage(createText("正在观察点: " + point.getDescription()), false);
+            player.sendMessage(configManager.getFormattedMessage("spectate_start_point", Map.of("name", point.getDescription())), false);
             updateOrbitingPosition(player, session, 0);
 
             double speedDeg = point.getRotationSpeed();
@@ -232,7 +227,7 @@ public class SpectateSessionManager {
 
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force) {
         if (!force && isSpectating(viewer.getUuid())) {
-            viewer.sendMessage(createText("已在观察中。请先使用 /cspectate stop 停止。"), false);
+            viewer.sendMessage(configManager.getMessage("spectate_already_running"), false);
             return;
         }
 
@@ -248,7 +243,7 @@ public class SpectateSessionManager {
         server.execute(() -> {
             changeGameMode(viewer, GameMode.SPECTATOR);
             viewer.setCameraEntity(target);
-            viewer.sendMessage(createText("正在观察玩家: " + target.getName().getString()), false);
+            viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player", Map.of("name", target.getName().getString())), false);
         });
     }
 
@@ -267,7 +262,7 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             originalState.restore(player);
-            player.sendMessage(createText("已停止观察。"), false);
+            player.sendMessage(configManager.getMessage("spectate_stop"), false);
         });
         return true;
     }
