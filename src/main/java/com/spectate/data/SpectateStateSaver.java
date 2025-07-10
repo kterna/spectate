@@ -44,25 +44,6 @@ public class SpectateStateSaver {
         this.pointsFile = configDir.resolve(POINTS_FILE_NAME);
         this.cycleFile = configDir.resolve(CYCLE_FILE_NAME);
         this.playerStatesFile = configDir.resolve(PLAYER_STATES_FILE_NAME);
-
-        try {
-            loadPoints();
-        } catch (IOException e) {
-            // 如果加载失败，创建默认点并保存
-            createDefaultPoint();
-        }
-
-        try {
-            loadCycles();
-        } catch (IOException e) {
-            // ignore, empty by default
-        }
-
-        try {
-            loadPlayerStates();
-        } catch (IOException e) {
-            // ignore, empty by default
-        }
     }
 
     /* ------------------- 观察点 ------------------- */

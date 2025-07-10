@@ -34,10 +34,12 @@ public class SpectateMod implements ModInitializer {
 
         // 注册玩家事件
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            // The facade now handles the logic internally
             ServerSpectateManager.getInstance().onPlayerDisconnect(handler.player);
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            // The facade now handles the logic internally
             ServerSpectateManager.getInstance().onPlayerConnect(handler.player);
         });
     }
