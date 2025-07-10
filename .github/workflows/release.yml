@@ -75,19 +75,13 @@ jobs:
           
           ### 下载说明
           请根据你的Minecraft版本下载对应的jar文件：
-          - `spectate-v1.0.0-mc1.16.5-SNAPSHOT.jar` - 适用于 Minecraft 1.16.5
-          - `spectate-v1.0.0-mc1.21.4-SNAPSHOT.jar` - 适用于 Minecraft 1.21.4
-          - `spectate-v1.0.0-mc1.21.5-SNAPSHOT.jar` - 适用于 Minecraft 1.21.5
-          - `spectate-v1.0.0-mc1.21.7-SNAPSHOT.jar` - 适用于 Minecraft 1.21.7
-          
-          ### 安装说明
-          1. 确保已安装对应版本的 Fabric Loader
-          2. 下载对应Minecraft版本的jar文件
-          3. 将jar文件放入 `.minecraft/mods` 目录
-          4. 启动游戏即可使用
+          - `spectate-v1.0.0-mc1.16.5-SNAPSHOT.jar`
+          - `spectate-v1.0.0-mc1.21.4-SNAPSHOT.jar`
+          - `spectate-v1.0.0-mc1.21.5-SNAPSHOT.jar`
+          - `spectate-v1.0.0-mc1.21.7-SNAPSHOT.jar`
           
           ### 依赖要求
-          - Fabric API (会自动下载依赖版本)
+          - Fabric API
           - Fabric Loader 0.16.14+
           
           ### 变更日志
