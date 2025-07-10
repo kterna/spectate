@@ -50,8 +50,10 @@ public class SpectateStateSaver {
         try {
             Files.createDirectories(spectateDir);
         } catch (IOException e) {
-            System.err.println("[Spectate] Failed to create config directory: " + spectateDir);
-            e.printStackTrace();
+            // Use the logger and throw a runtime exception for critical init failures
+            String errorMessage = "[Spectate] Failed to create config directory: " + spectateDir;
+            SpectateMod.LOGGER.error(errorMessage, e);
+            throw new RuntimeException(errorMessage, e);
         }
         this.pointsFile = spectateDir.resolve(POINTS_FILE_NAME);
         this.cycleFile = spectateDir.resolve(CYCLE_FILE_NAME);
@@ -66,20 +68,17 @@ public class SpectateStateSaver {
         try {
             loadPoints();
         } catch (IOException e) {
-            System.err.println("[Spectate] Failed to load spectate points.");
-            e.printStackTrace();
+            SpectateMod.LOGGER.error("[Spectate] Failed to load spectate points from file: {}", pointsFile, e);
         }
         try {
             loadCycles();
         } catch (IOException e) {
-            System.err.println("[Spectate] Failed to load cycle lists.");
-            e.printStackTrace();
+            SpectateMod.LOGGER.error("[Spectate] Failed to load cycle lists from file: {}", cycleFile, e);
         }
         try {
             loadPlayerStates();
         } catch (IOException e) {
-            System.err.println("[Spectate] Failed to load player states.");
-            e.printStackTrace();
+            SpectateMod.LOGGER.error("[Spectate] Failed to load player states from file: {}", playerStatesFile, e);
         }
     }
 
