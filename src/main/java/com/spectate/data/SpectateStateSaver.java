@@ -1,16 +1,20 @@
 package com.spectate.data;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import com.spectate.SpectateMod;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.util.math.BlockPos;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * SpectateStateSaver 负责将观察点和循环列表持久化到磁盘。
@@ -18,10 +22,11 @@ import java.util.stream.Collectors;
  */
 public class SpectateStateSaver {
 
-    private static final String POINTS_FILE_NAME = "spectate_points.properties";
-    private static final String CYCLE_FILE_NAME = "cycle_lists.properties";
-    private static final String PLAYER_STATES_FILE_NAME = "player_spectate_states.properties";
+    private static final String POINTS_FILE_NAME = "spectate_points.json";
+    private static final String CYCLE_FILE_NAME = "cycle_lists.json";
+    private static final String PLAYER_STATES_FILE_NAME = "player_spectate_states.json";
 
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final SpectateStateSaver INSTANCE = new SpectateStateSaver();
 
     public static SpectateStateSaver getInstance() {
@@ -144,19 +149,15 @@ public class SpectateStateSaver {
     /* ------------------- 内部加载 / 保存 ------------------- */
 
     private void loadPoints() throws IOException {
-        if (!Files.exists(pointsFile)) {
+        if (Files.notExists(pointsFile)) {
             createDefaultPoint();
             return;
         }
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(pointsFile.toFile())) {
-            props.load(fis);
-        }
-        for (String key : props.stringPropertyNames()) {
-            String value = props.getProperty(key);
-            SpectatePointData data = parsePoint(value);
-            if (data != null) {
-                pointCache.put(key, data);
+        try (FileReader reader = new FileReader(pointsFile.toFile())) {
+            Type type = new TypeToken<Map<String, SpectatePointData>>() {}.getType();
+            Map<String, SpectatePointData> loadedPoints = GSON.fromJson(reader, type);
+            if (loadedPoints != null) {
+                pointCache.putAll(loadedPoints);
             }
         }
         if (pointCache.isEmpty()) {
@@ -165,131 +166,66 @@ public class SpectateStateSaver {
     }
 
     private void savePoints() {
-        Properties props = new Properties();
-        for (Map.Entry<String, SpectatePointData> entry : pointCache.entrySet()) {
-            props.setProperty(entry.getKey(), serializePoint(entry.getValue()));
-        }
         try {
             Files.createDirectories(pointsFile.getParent());
-            try (FileOutputStream fos = new FileOutputStream(pointsFile.toFile())) {
-                props.store(fos, "Spectate Points");
+            try (FileWriter writer = new FileWriter(pointsFile.toFile())) {
+                GSON.toJson(pointCache, writer);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            SpectateMod.LOGGER.error("[Spectate] Failed to save spectate points.", e);
         }
     }
 
     private void loadCycles() throws IOException {
-        if (!Files.exists(cycleFile)) {
+        if (Files.notExists(cycleFile)) {
             return;
         }
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(cycleFile.toFile())) {
-            props.load(fis);
-        }
-        for (String key : props.stringPropertyNames()) {
-            String value = props.getProperty(key);
-            List<String> list = Arrays.stream(value.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
-            cycleCache.put(key, list);
+        try (FileReader reader = new FileReader(cycleFile.toFile())) {
+            Type type = new TypeToken<Map<String, List<String>>>() {}.getType();
+            Map<String, List<String>> loadedCycles = GSON.fromJson(reader, type);
+            if (loadedCycles != null) {
+                cycleCache.putAll(loadedCycles);
+            }
         }
     }
 
     private void saveCycles() {
-        Properties props = new Properties();
-        for (Map.Entry<String, List<String>> entry : cycleCache.entrySet()) {
-            String joined = String.join(",", entry.getValue());
-            props.setProperty(entry.getKey(), joined);
-        }
         try {
             Files.createDirectories(cycleFile.getParent());
-            try (FileOutputStream fos = new FileOutputStream(cycleFile.toFile())) {
-                props.store(fos, "Cycle Lists");
+            try (FileWriter writer = new FileWriter(cycleFile.toFile())) {
+                GSON.toJson(cycleCache, writer);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            SpectateMod.LOGGER.error("[Spectate] Failed to save cycle lists.", e);
         }
     }
 
     private void loadPlayerStates() throws IOException {
-        if (!Files.exists(playerStatesFile)) {
+        if (Files.notExists(playerStatesFile)) {
             return;
         }
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream(playerStatesFile.toFile())) {
-            props.load(fis);
-        }
-        for (String key : props.stringPropertyNames()) {
-            playerStateCache.put(key, props.getProperty(key));
+        try (FileReader reader = new FileReader(playerStatesFile.toFile())) {
+            Type type = new TypeToken<Map<String, String>>() {}.getType();
+            Map<String, String> loadedStates = GSON.fromJson(reader, type);
+            if (loadedStates != null) {
+                playerStateCache.putAll(loadedStates);
+            }
         }
     }
 
     private void savePlayerStates() {
-        Properties props = new Properties();
-        for (Map.Entry<String, String> entry : playerStateCache.entrySet()) {
-            props.setProperty(entry.getKey(), entry.getValue());
-        }
         try {
             Files.createDirectories(playerStatesFile.getParent());
-            try (FileOutputStream fos = new FileOutputStream(playerStatesFile.toFile())) {
-                props.store(fos, "Player Spectate States");
+            try (FileWriter writer = new FileWriter(playerStatesFile.toFile())) {
+                GSON.toJson(playerStateCache, writer);
             }
         } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /* ------------------- 序列化帮助 ------------------- */
-
-    private static String serializePoint(SpectatePointData data) {
-        BlockPos pos = data.getPosition();
-        return String.format(Locale.ROOT, "%d,%d,%d,%.2f,%.2f,%s",
-                pos.getX(), pos.getY(), pos.getZ(),
-                data.getDistance(), data.getHeightOffset(),
-                escape(data.getDescription()));
-    }
-
-    private static SpectatePointData parsePoint(String str) {
-        try {
-            String[] parts = str.split(",", 6); // description 可能包含逗号，限制分割次数
-            int x = Integer.parseInt(parts[0]);
-            int y = Integer.parseInt(parts[1]);
-            int z = Integer.parseInt(parts[2]);
-            double dist = Double.parseDouble(parts[3]);
-            double h = Double.parseDouble(parts[4]);
-            String desc = unescape(parts.length >= 6 ? parts[5] : "");
-            return new SpectatePointData(new BlockPos(x, y, z), dist, h, desc);
-        } catch (Exception e) {
-            System.err.println("[Spectate] Failed to parse spectate point: " + str);
-            return null;
+            SpectateMod.LOGGER.error("[Spectate] Failed to save player states.", e);
         }
     }
 
     /* ------------------- 默认点 ------------------- */
     private void createDefaultPoint() {
         addSpectatePoint("origin", new SpectatePointData(BlockPos.ORIGIN, 10.0, 3.0, "(auto) world spawn"));
-    }
-
-    /* ------------------- 文本转义简单实现 ------------------- */
-    private static String escape(String s) {
-        return s.replace("\\", "\\\\").replace(",", "\\,");
-    }
-
-    private static String unescape(String s) {
-        StringBuilder sb = new StringBuilder();
-        boolean escaping = false;
-        for (char c : s.toCharArray()) {
-            if (escaping) {
-                sb.append(c);
-                escaping = false;
-            } else if (c == '\\') {
-                escaping = true;
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
     }
 }
