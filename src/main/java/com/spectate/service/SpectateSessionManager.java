@@ -59,7 +59,8 @@ public class SpectateSessionManager {
         //#endif
     }
 
-    private static void changeGameMode(ServerPlayerEntity player, GameMode gameMode) {
+    // Make this public static so other services can use it for cross-version compatibility
+    public static void changeGameMode(ServerPlayerEntity player, GameMode gameMode) {
         //#if MC >= 11900
         player.changeGameMode(gameMode);
         //#else
@@ -67,7 +68,7 @@ public class SpectateSessionManager {
         //#endif
     }
 
-    private static void teleportPlayer(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
+    public static void teleportPlayer(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
         //#if MC >= 11900
         player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch, false);
         //#else

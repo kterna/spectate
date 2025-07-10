@@ -3,8 +3,10 @@ package com.spectate.service;
 import com.spectate.data.SpectatePointData;
 import com.spectate.data.SpectateStateSaver;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 
 import java.util.List;
 import java.util.UUID;
@@ -150,6 +152,25 @@ public class ServerSpectateManager {
     }
 
     public void onPlayerConnect(ServerPlayerEntity player) {
-        // No action needed on connect. State is not persisted across sessions.
+        // Safety check for "zombie" sessions after a server crash.
+        // If a player is in spectator mode but the plugin has no record of them spectating,
+        // it means they were likely stuck during a crash.
+        if (player.isSpectator() && !isSpectating(player)) {
+            // Restore them to a sane state.
+            player.getServer().execute(() -> {
+                ServerWorld world = player.getServer().getOverworld();
+                GameMode defaultGameMode = world.getServer().getDefaultGameMode();
+
+                // Use the cross-version-compatible method from SpectateSessionManager
+                SpectateSessionManager.changeGameMode(player, defaultGameMode);
+                player.setCameraEntity(player); // Unset any camera target
+
+                // Teleport to spawn to avoid being stuck in a weird location
+                BlockPos spawnPoint = world.getSpawnPos();
+                SpectateSessionManager.teleportPlayer(player, world, spawnPoint.getX() + 0.5, spawnPoint.getY(), spawnPoint.getZ() + 0.5, 0, 0);
+
+                player.sendMessage(createText("Your previous spectating session was terminated due to a server restart."), false);
+            });
+        }
     }
 }
