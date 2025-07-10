@@ -141,62 +141,15 @@ public class ServerSpectateManager {
     /* ------------------- Event Handlers ------------------- */
 
     public void onPlayerDisconnect(ServerPlayerEntity player) {
-        UUID playerId = player.getUuid();
-        if (!sessionManager.isSpectating(playerId)) {
-            return;
+        // If a player is spectating and disconnects, stop their session.
+        // This will restore their original state before the server saves their data,
+        // ensuring they log back in at their original position.
+        if (isSpectating(player)) {
+            stopSpectating(player);
         }
-
-        String stateToSave = null;
-        if (cycleService.isCycling(playerId)) {
-            stateToSave = "cycle";
-        } else {
-            SpectateSessionManager.SpectateSession session = sessionManager.getActiveSession(playerId);
-            if (session != null) {
-                if (session.isObservingPoint() && session.getSpectatePointData() != null) {
-                    stateToSave = "point:" + session.getSpectatePointData().getDescription();
-                } else if (session.getTargetPlayer() != null && !isPlayerRemoved(session.getTargetPlayer())) {
-                    stateToSave = "player:" + session.getTargetPlayer().getUuidAsString();
-                }
-            }
-        }
-
-        if (stateToSave != null) {
-            stateSaver.savePlayerState(playerId, stateToSave);
-        }
-
-        // Clean up in-memory session state regardless
-        cycleService.stopCycle(player);
-        sessionManager.stopSpectating(player);
     }
 
     public void onPlayerConnect(ServerPlayerEntity player) {
-        UUID playerId = player.getUuid();
-        String state = stateSaver.getPlayerState(playerId);
-
-        if (state != null) {
-            stateSaver.removePlayerState(playerId); // Consume the state
-
-            player.getServer().execute(() -> {
-                if ("cycle".equals(state)) {
-                    cycleService.startCycle(player);
-                } else if (state.startsWith("point:")) {
-                    String pointName = state.substring("point:".length());
-                    SpectatePointData point = pointManager.getPoint(pointName);
-                    if (point != null) {
-                        sessionManager.spectatePoint(player, point, true);
-                    }
-                } else if (state.startsWith("player:")) {
-                    try {
-                        UUID targetId = UUID.fromString(state.substring("player:".length()));
-                        ServerPlayerEntity target = player.getServer().getPlayerManager().getPlayer(targetId);
-                        if (target != null) {
-                            sessionManager.spectatePlayer(player, target, true);
-                        }
-                    } catch (IllegalArgumentException e) {
-                        // Invalid UUID, ignore.
-                    }
-                }
-            });
-        }
+        // No action needed on connect. State is not persisted across sessions.
     }
 }
