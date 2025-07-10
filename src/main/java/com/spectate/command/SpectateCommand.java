@@ -5,6 +5,8 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.spectate.command.suggestion.CyclePointSuggestionProvider;
+import com.spectate.command.suggestion.PointSuggestionProvider;
 import com.spectate.config.ConfigManager;
 import com.spectate.config.SpectateConfig;
 import com.spectate.data.SpectatePointData;
@@ -37,6 +39,8 @@ import java.util.Map;
 public class SpectateCommand {
 
     private static final ConfigManager CONFIG_MANAGER = ConfigManager.getInstance();
+    private static final PointSuggestionProvider POINT_SUGGESTIONS = new PointSuggestionProvider();
+    private static final CyclePointSuggestionProvider CYCLE_SUGGESTIONS = new CyclePointSuggestionProvider();
 
     // Helper method for cross-version sendFeedback
     private static void sendFeedback(ServerCommandSource source, Text text, boolean broadcastToOps) {
@@ -108,7 +112,7 @@ public class SpectateCommand {
         // points remove <name>
         points.then(CommandManager.literal("remove")
                 .then(CommandManager.argument("name", StringArgumentType.word())
-                        .suggests((c, b) -> CommandSource.suggestMatching(SpectatePointManager.getInstance().listPointNames(), b))
+                        .suggests(POINT_SUGGESTIONS)
                         .executes(ctx -> {
                             String name = StringArgumentType.getString(ctx, "name");
                             if (SpectatePointManager.getInstance().removePoint(name) != null) {
@@ -140,7 +144,7 @@ public class SpectateCommand {
     private static LiteralArgumentBuilder<ServerCommandSource> buildPointCommand() {
         return CommandManager.literal("point")
                 .then(CommandManager.argument("name", StringArgumentType.word())
-                        .suggests((c,b)->CommandSource.suggestMatching(SpectatePointManager.getInstance().listPointNames(), b))
+                        .suggests(POINT_SUGGESTIONS)
                         .executes(ctx -> {
                             String name = StringArgumentType.getString(ctx, "name");
                             SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
@@ -168,7 +172,7 @@ public class SpectateCommand {
         // cycle add <name>
         cycle.then(CommandManager.literal("add")
                 .then(CommandManager.argument("name", StringArgumentType.word())
-                        .suggests((c, b) -> CommandSource.suggestMatching(SpectatePointManager.getInstance().listPointNames(), b))
+                        .suggests(POINT_SUGGESTIONS)
                         .executes(ctx -> {
                             manager.addCyclePoint(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "name"));
                             return 1;
@@ -187,10 +191,7 @@ public class SpectateCommand {
         // cycle remove <name>
         cycle.then(CommandManager.literal("remove")
                 .then(CommandManager.argument("name", StringArgumentType.word())
-                        .suggests((c, b) -> {
-                            ServerPlayerEntity player = c.getSource().getPlayer();
-                            return player != null ? CommandSource.suggestMatching(manager.listCyclePoints(player), b) : CommandSource.suggestMatching(Collections.emptyList(), b);
-                        })
+                        .suggests(CYCLE_SUGGESTIONS)
                         .executes(ctx -> {
                             manager.removeCyclePoint(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "name"));
                             return 1;
