@@ -204,6 +204,36 @@ public class SpectateSessionManager {
         SpectatePointData point = session.getSpectatePointData();
         if (point == null) return;
 
+        // 确保在正确的维度
+        ServerWorld targetWorld = player.getServerWorld();
+        try {
+            String dimensionStr = point.getDimension();
+            if (dimensionStr.contains(":")) {
+                String[] parts = dimensionStr.split(":");
+                //#if MC >= 12005
+                net.minecraft.util.Identifier dimensionId = net.minecraft.util.Identifier.of(parts[0], parts[1]);
+                //#else
+                //$$net.minecraft.util.Identifier dimensionId = new net.minecraft.util.Identifier(parts[0], parts[1]);
+                //#endif
+                for (ServerWorld world : player.getServer().getWorlds()) {
+                    if (world.getRegistryKey().getValue().equals(dimensionId)) {
+                        targetWorld = world;
+                        break;
+                    }
+                }
+            }
+            //#if MC >= 11900
+            if (targetWorld != null && !player.getWorld().equals(targetWorld)) {
+            //#else
+            //$$if (targetWorld != null && !player.getServerWorld().equals(targetWorld)) {
+            //#endif
+                teleportPlayer(player, targetWorld, player.getX(), player.getY(), player.getZ(), 0, 0);
+            }
+        } catch (Exception e) {
+            // 如果维度解析失败，使用当前世界
+            targetWorld = player.getServerWorld();
+        }
+
         double angleRad = 0;
         if (point.getRotationSpeed() > 0) {
             double periodSec = 360.0 / point.getRotationSpeed();
@@ -222,7 +252,41 @@ public class SpectateSessionManager {
         float pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
 
         if (isPlayerRemoved(player)) return;
-        teleportPlayer(player, player.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
+        ServerWorld world = targetWorld != null ? targetWorld : player.getServerWorld();
+        teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
+    }
+
+    private void updatePlayerSpectatePosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds) {
+        // 默认的玩家旁观参数
+        double distance = 8.0;  // 默认距离
+        double heightOffset = 2.0;  // 默认高度偏移
+        double rotationSpeed = 5.0;  // 默认每秒旋转5度
+        
+        double angleRad = 0;
+        if (rotationSpeed > 0) {
+            double periodSec = 360.0 / rotationSpeed;
+            angleRad = (elapsedSeconds % periodSec) / periodSec * 2 * Math.PI;
+        }
+
+        double camXo = Math.sin(angleRad) * distance;
+        double camZo = Math.cos(angleRad) * distance;
+        double camXn = target.getX() + camXo;
+        double camYn = target.getY() + heightOffset;
+        double camZn = target.getZ() + camZo;
+        
+        // 计算视角方向，始终看向目标玩家
+        double dx = target.getX() - camXn;
+        double dy = target.getY() - camYn;
+        double dz = target.getZ() - camZn;
+        float yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
+        float pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+
+        if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) return;
+        //#if MC >= 11900
+        teleportPlayer(viewer, (ServerWorld) target.getWorld(), camXn, camYn, camZn, yaw, pitch);
+        //#else
+        //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
+        //#endif
     }
 
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force) {
@@ -242,8 +306,34 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             changeGameMode(viewer, GameMode.SPECTATOR);
-            viewer.setCameraEntity(target);
             viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player", Map.of("name", target.getName().getString())), false);
+            
+            // 初始位置设置
+            updatePlayerSpectatePosition(viewer, target, 0);
+            
+            // 开始周期性更新位置，实现360°旋转
+            session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
+                if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) {
+                    cancelCurrentSpectation(viewer.getUuid());
+                    return;
+                }
+                
+                //#if MC >= 11900
+                if (!target.getWorld().equals(viewer.getWorld())) {
+                //#else
+                //$$if (!target.getServerWorld().equals(viewer.getServerWorld())) {
+                //#endif
+                    // 如果目标切换维度，跟随切换
+                    //#if MC >= 11900
+                    teleportPlayer(viewer, (ServerWorld) target.getWorld(), viewer.getX(), viewer.getY(), viewer.getZ(), 0, 0);
+                    //#else
+                    //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), viewer.getX(), viewer.getY(), viewer.getZ(), 0, 0);
+                    //#endif
+                }
+                
+                double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
+                updatePlayerSpectatePosition(viewer, target, elapsed);
+            }, 50, 50, TimeUnit.MILLISECONDS);
         });
     }
 

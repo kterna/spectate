@@ -225,6 +225,6 @@ public class SpectateStateSaver {
 
     /* ------------------- 默认点 ------------------- */
     private void createDefaultPoint() {
-        addSpectatePoint("origin", new SpectatePointData(BlockPos.ORIGIN, 10.0, 3.0, "(auto) world spawn"));
+        addSpectatePoint("origin", new SpectatePointData("minecraft:overworld", BlockPos.ORIGIN, 10.0, 3.0, "(auto) world spawn"));
     }
 }

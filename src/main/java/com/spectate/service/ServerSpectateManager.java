@@ -59,7 +59,12 @@ public class ServerSpectateManager {
      */
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height, double rotation) {
         String pointName = String.format("coords(%.0f,%.0f,%.0f)", x, y, z);
-        SpectatePointData data = new SpectatePointData(new BlockPos((int)x, (int)y, (int)z), distance, height, rotation, pointName);
+        //#if MC >= 11900
+        String dimension = player.getWorld().getRegistryKey().getValue().toString();
+        //#else
+        //$$String dimension = player.getServerWorld().getRegistryKey().getValue().toString();
+        //#endif
+        SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)x, (int)y, (int)z), distance, height, rotation, pointName);
         sessionManager.spectatePoint(player, data, false);
     }
 
