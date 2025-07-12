@@ -380,8 +380,7 @@ public class SpectateSessionManager {
         double camXn, camYn, camZn;
         float yaw, pitch;
         double distance, heightOffset, rotationSpeed, angleRad, camXo, camZo;
-        double baseDistance, distanceVariation, fixedAngle, spiralSpeed, riseSpeed;
-        double figureEightSpeed, t, pendulumSpeed, swingAngle, followAngle;
+        double spiralSpeed, riseSpeed;
         double dx, dy, dz;
         
         switch (cinematicMode) {
@@ -394,22 +393,6 @@ public class SpectateSessionManager {
                 angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
                 camXo = Math.sin(angleRad) * distance;
                 camZo = Math.cos(angleRad) * distance;
-                camXn = centerX + camXo;
-                camYn = centerY + heightOffset;
-                camZn = centerZ + camZo;
-                break;
-                
-            case DOLLY_ZOOM:
-                // 推拉镜头效果 - 距离变化
-                baseDistance = Math.max(point.getDistance(), 8.0);
-                distanceVariation = baseDistance * 0.6;
-                distance = baseDistance + distanceVariation * Math.sin(elapsedSeconds * 0.3);
-                heightOffset = point.getHeightOffset();
-                
-                // 固定角度
-                fixedAngle = Math.PI / 4;
-                camXo = Math.sin(fixedAngle) * distance;
-                camZo = Math.cos(fixedAngle) * distance;
                 camXn = centerX + camXo;
                 camYn = centerY + heightOffset;
                 camZn = centerZ + camZo;
@@ -431,48 +414,6 @@ public class SpectateSessionManager {
                 angleRad = (elapsedSeconds * spiralSpeed) * Math.PI / 180.0;
                 heightOffset = point.getHeightOffset() + (elapsedSeconds * riseSpeed);
                 
-                camXo = Math.sin(angleRad) * distance;
-                camZo = Math.cos(angleRad) * distance;
-                camXn = centerX + camXo;
-                camYn = centerY + heightOffset;
-                camZn = centerZ + camZo;
-                break;
-                
-            case FIGURE_EIGHT:
-                // 8字形轨迹
-                distance = Math.max(point.getDistance(), 10.0);
-                heightOffset = point.getHeightOffset() + 2.0;
-                figureEightSpeed = 0.3; // 周期速度
-                
-                t = elapsedSeconds * figureEightSpeed * 2 * Math.PI;
-                camXo = distance * Math.sin(t);
-                camZo = distance * Math.sin(t) * Math.cos(t);
-                camXn = centerX + camXo;
-                camYn = centerY + heightOffset;
-                camZn = centerZ + camZo;
-                break;
-                
-            case PENDULUM:
-                // 钟摆运动
-                distance = Math.max(point.getDistance(), 12.0);
-                heightOffset = point.getHeightOffset() + 3.0;
-                pendulumSpeed = 0.8;
-                
-                swingAngle = Math.PI / 3 * Math.sin(elapsedSeconds * pendulumSpeed); // ±60度摆动
-                camXo = Math.sin(swingAngle) * distance;
-                camZo = Math.cos(swingAngle) * distance;
-                camXn = centerX + camXo;
-                camYn = centerY + heightOffset;
-                camZn = centerZ + camZo;
-                break;
-                
-            case SMOOTH_FOLLOW:
-                // 对于观察点，平滑跟随就是慢速环绕
-                distance = Math.max(point.getDistance(), 6.0);
-                heightOffset = point.getHeightOffset() + 1.0;
-                rotationSpeed = 2.0; // 2度/秒
-                
-                angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
                 camXo = Math.sin(angleRad) * distance;
                 camZo = Math.cos(angleRad) * distance;
                 camXn = centerX + camXo;
@@ -639,38 +580,24 @@ public class SpectateSessionManager {
         
         double camXn, camYn, camZn;
         float yaw, pitch;
+        double distance, heightOffset, rotationSpeed, angleRad, camXo, camZo;
+        double spiralSpeed, riseSpeed;
         
         switch (cinematicMode) {
             case SLOW_ORBIT:
                 // 慢速环绕
-                double distance = 12.0;
-                double heightOffset = 3.0;
-                double rotationSpeed = 1.0; // 1度/秒
+                distance = 12.0;
+                heightOffset = 3.0;
+                rotationSpeed = 1.0; // 1度/秒
                 
-                double angleRad = 0;
+                angleRad = 0;
                 if (rotationSpeed > 0) {
                     double periodSec = 360.0 / rotationSpeed;
                     angleRad = (elapsedSeconds % periodSec) / periodSec * 2 * Math.PI;
                 }
                 
-                double camXo = Math.sin(angleRad) * distance;
-                double camZo = Math.cos(angleRad) * distance;
-                camXn = target.getX() + camXo;
-                camYn = target.getY() + heightOffset;
-                camZn = target.getZ() + camZo;
-                break;
-                
-            case DOLLY_ZOOM:
-                // 推拉镜头效果
-                double baseDistance = 10.0;
-                double distanceVariation = 6.0;
-                distance = baseDistance + distanceVariation * Math.sin(elapsedSeconds * 0.5);
-                heightOffset = 2.0;
-                
-                // 固定角度，只改变距离
-                double fixedAngle = Math.PI / 4; // 45度
-                camXo = Math.sin(fixedAngle) * distance;
-                camZo = Math.cos(fixedAngle) * distance;
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
                 camXn = target.getX() + camXo;
                 camYn = target.getY() + heightOffset;
                 camZn = target.getZ() + camZo;
@@ -686,8 +613,8 @@ public class SpectateSessionManager {
             case SPIRAL_UP:
                 // 螺旋上升
                 distance = 8.0;
-                double spiralSpeed = 2.0; // 2度/秒
-                double riseSpeed = 0.5; // 每秒上升0.5格
+                spiralSpeed = 2.0; // 2度/秒
+                riseSpeed = 0.5; // 每秒上升0.5格
                 
                 angleRad = (elapsedSeconds * spiralSpeed) * Math.PI / 180.0;
                 heightOffset = 2.0 + (elapsedSeconds * riseSpeed);
@@ -697,48 +624,6 @@ public class SpectateSessionManager {
                 camXn = target.getX() + camXo;
                 camYn = target.getY() + heightOffset;
                 camZn = target.getZ() + camZo;
-                break;
-                
-            case FIGURE_EIGHT:
-                // 8字形轨迹
-                distance = 10.0;
-                heightOffset = 3.0;
-                double figureEightSpeed = 0.5; // 每秒0.5个周期
-                
-                double t = elapsedSeconds * figureEightSpeed * 2 * Math.PI;
-                camXo = distance * Math.sin(t);
-                camZo = distance * Math.sin(t) * Math.cos(t);
-                camXn = target.getX() + camXo;
-                camYn = target.getY() + heightOffset;
-                camZn = target.getZ() + camZo;
-                break;
-                
-            case PENDULUM:
-                // 钟摆运动
-                distance = 12.0;
-                heightOffset = 4.0;
-                double pendulumSpeed = 1.0;
-                
-                double swingAngle = Math.PI / 3 * Math.sin(elapsedSeconds * pendulumSpeed); // ±60度摆动
-                camXo = Math.sin(swingAngle) * distance;
-                camZo = Math.cos(swingAngle) * distance;
-                camXn = target.getX() + camXo;
-                camYn = target.getY() + heightOffset;
-                camZn = target.getZ() + camZo;
-                break;
-                
-            case SMOOTH_FOLLOW:
-                // 平滑跟随
-                distance = 6.0;
-                heightOffset = 2.5;
-                
-                // 获取目标移动方向
-                float targetYaw = getPlayerYaw(target);
-                // 在目标移动方向的右侧跟随
-                double followAngle = Math.toRadians(targetYaw + 90);
-                camXn = target.getX() + Math.sin(followAngle) * distance;
-                camZn = target.getZ() - Math.cos(followAngle) * distance;
-                camYn = target.getY() + heightOffset;
                 break;
 
             case FLOATING:
@@ -865,12 +750,8 @@ public class SpectateSessionManager {
                 if (cinematicMode != null) {
                     switch (cinematicMode) {
                         case SLOW_ORBIT: return "电影模式 - 慢速环绕";
-                        case DOLLY_ZOOM: return "电影模式 - 推拉镜头";
                         case AERIAL_VIEW: return "电影模式 - 高空俯瞰";
                         case SPIRAL_UP: return "电影模式 - 螺旋上升";
-                        case FIGURE_EIGHT: return "电影模式 - 8字轨迹";
-                        case PENDULUM: return "电影模式 - 钟摆运动";
-                        case SMOOTH_FOLLOW: return "电影模式 - 平滑跟随";
                         case FLOATING: return "电影模式 - 浮游视角";
                         default: return "电影模式";
                     }
