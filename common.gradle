@@ -43,7 +43,7 @@ dependencies {
     // 自己的模组以来也写在这里
 }
 
-String MIXIN_CONFIG_PATH = 'demomod.mixins.json'
+String MIXIN_CONFIG_PATH = 'spectate.mixins.json'
 JavaVersion JAVA_COMPATIBILITY
 if (mcVersion >= 12005) {
     JAVA_COMPATIBILITY = JavaVersion.VERSION_21
@@ -85,11 +85,9 @@ shadowJar {
     archiveClassifier.set('shadow')
 }
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
-tasks.withType(ShadowJar).configureEach {
+tasks.withType(com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar).configureEach {
     enableRelocation true
-    relocationPrefix 'demomod.libs'
+    relocationPrefix 'com.spectate.libs'
 }
 
 remapJar {

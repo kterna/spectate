@@ -22,6 +22,8 @@ public class ServerSpectateManager {
     private static final ServerSpectateManager INSTANCE = new ServerSpectateManager();
     public static ServerSpectateManager getInstance() { return INSTANCE; }
 
+    private static final String PLAYER_PREFIX = "player:";
+
     private final SpectateSessionManager sessionManager = SpectateSessionManager.getInstance();
     private final CycleService cycleService = CycleService.getInstance();
     private final SpectatePointManager pointManager = SpectatePointManager.getInstance();
@@ -57,7 +59,12 @@ public class ServerSpectateManager {
      */
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height, double rotation) {
         String pointName = String.format("coords(%.0f,%.0f,%.0f)", x, y, z);
-        SpectatePointData data = new SpectatePointData(new BlockPos((int)x, (int)y, (int)z), distance, height, rotation, pointName);
+        //#if MC >= 11900
+        String dimension = player.getWorld().getRegistryKey().getValue().toString();
+        //#else
+        //$$String dimension = player.getServerWorld().getRegistryKey().getValue().toString();
+        //#endif
+        SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)x, (int)y, (int)z), distance, height, rotation, pointName);
         sessionManager.spectatePoint(player, data, false);
     }
 
@@ -117,8 +124,8 @@ public class ServerSpectateManager {
             return;
         }
 
-        if (pointName.startsWith("player:")) {
-            String targetName = pointName.substring("player:".length());
+        if (pointName.startsWith(PLAYER_PREFIX)) {
+            String targetName = pointName.substring(PLAYER_PREFIX.length());
             ServerPlayerEntity target = player.getServer().getPlayerManager().getPlayer(targetName);
             if (target == null) {
                 player.sendMessage(configManager.getFormattedMessage("player_not_found", Map.of("name", targetName)), false);

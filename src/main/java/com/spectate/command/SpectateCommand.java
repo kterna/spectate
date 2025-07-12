@@ -90,7 +90,12 @@ public class SpectateCommand {
                     String name = StringArgumentType.getString(ctx, "name");
                     Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
                     SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
-                    SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, name);
+                    //#if MC >= 11900
+                    String dimension = ctx.getSource().getPlayer().getWorld().getRegistryKey().getValue().toString();
+                    //#else
+                    //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
+                    //#endif
+                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, name);
                     SpectatePointManager.getInstance().addPoint(name, data);
                     sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                     return 1;
@@ -101,7 +106,12 @@ public class SpectateCommand {
                             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
                             String desc = StringArgumentType.getString(ctx, "description");
                             SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
-                            SpectatePointData data = new SpectatePointData(new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, desc);
+                            //#if MC >= 11900
+                            String dimension = ctx.getSource().getPlayer().getWorld().getRegistryKey().getValue().toString();
+                            //#else
+                            //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
+                            //#endif
+                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, desc);
                             SpectatePointManager.getInstance().addPoint(name, data);
                             sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                             return 1;

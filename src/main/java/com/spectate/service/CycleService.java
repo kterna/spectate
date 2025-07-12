@@ -103,8 +103,17 @@ public class CycleService {
     public void removeCyclePoint(ServerPlayerEntity player, String pointName) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null) {
+            boolean wasRunning = session.running;
+            if (wasRunning) {
+                stopCycle(player); // Stop the current task
+            }
+
             session.removePoint(pointName);
             player.sendMessage(configManager.getFormattedMessage("cycle_point_removed", Map.of("name", pointName)), false);
+
+            if (wasRunning && !session.isEmpty()) {
+                startCycle(player); // Restart with the modified list
+            }
         } else {
             player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
         }
