@@ -114,19 +114,58 @@ public class SpectateSessionManager {
         private final SpectatePointData spectatePointData;
         private final ServerPlayerEntity targetPlayer;
         private final boolean isPoint;
+        private final ViewMode viewMode;
+        private final CinematicMode cinematicMode;
+        private FloatingCamera floatingCamera; // 浮游摄像机实例
 
         SpectateSession(SpectatePointData pointData) {
             this.spectatePointData = pointData;
             this.targetPlayer = null;
             this.isPoint = true;
+            this.viewMode = ViewMode.ORBIT;
+            this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
+        }
+
+        SpectateSession(SpectatePointData pointData, ViewMode viewMode, CinematicMode cinematicMode) {
+            this.spectatePointData = pointData;
+            this.targetPlayer = null;
+            this.isPoint = true;
+            this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
+            this.cinematicMode = cinematicMode;
+            this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
         }
 
         SpectateSession(ServerPlayerEntity target) {
             this.targetPlayer = target;
             this.spectatePointData = null;
             this.isPoint = false;
+            this.viewMode = ViewMode.ORBIT;
+            this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
+        }
+
+        SpectateSession(ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
+            this.targetPlayer = target;
+            this.spectatePointData = null;
+            this.isPoint = false;
+            this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
+            this.cinematicMode = cinematicMode;
+            this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
+        }
+
+        private void initializeFloatingCamera() {
+            if (cinematicMode == CinematicMode.FLOATING) {
+                floatingCamera = new FloatingCamera();
+                // 可以根据需要调整参数
+                floatingCamera.setFloatingStrength(0.5);
+                floatingCamera.setFloatingSpeed(0.3);
+                floatingCamera.setOrbitRadius(8.0);
+            }
         }
 
         void cancel() {
@@ -147,6 +186,18 @@ public class SpectateSessionManager {
         ServerPlayerEntity getTargetPlayer() {
             return targetPlayer;
         }
+
+        ViewMode getViewMode() {
+            return viewMode;
+        }
+
+        CinematicMode getCinematicMode() {
+            return cinematicMode;
+        }
+
+        FloatingCamera getFloatingCamera() {
+            return floatingCamera;
+        }
     }
 
     private void savePlayerOriginalState(ServerPlayerEntity player) {
@@ -161,6 +212,10 @@ public class SpectateSessionManager {
     }
 
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force) {
+        spectatePoint(player, point, force, ViewMode.ORBIT, null);
+    }
+
+    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force, ViewMode viewMode, CinematicMode cinematicMode) {
         if (point == null) {
             // This case should ideally not happen if called from commands, more of a safeguard.
             player.sendMessage(configManager.getMessage("point_not_found"), false);
@@ -175,7 +230,7 @@ public class SpectateSessionManager {
         savePlayerOriginalState(player);
         cancelCurrentSpectation(player.getUuid());
 
-        SpectateSession session = new SpectateSession(point);
+        SpectateSession session = new SpectateSession(point, viewMode, cinematicMode);
         activeSpectations.put(player.getUuid(), session);
 
         MinecraftServer server = SpectateMod.getServer();
@@ -183,11 +238,15 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             changeGameMode(player, GameMode.SPECTATOR);
-            player.sendMessage(configManager.getFormattedMessage("spectate_start_point", Map.of("name", point.getDescription())), false);
+            
+            String modeMessage = getViewModeMessage(viewMode, cinematicMode);
+            player.sendMessage(configManager.getFormattedMessage("spectate_start_point_with_mode", 
+                Map.of("name", point.getDescription(), "mode", modeMessage)), false);
+            
             updateOrbitingPosition(player, session, 0);
 
             double speedDeg = point.getRotationSpeed();
-            if (speedDeg > 0) {
+            if (speedDeg > 0 || viewMode != ViewMode.ORBIT) {
                 session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
                     if (isPlayerRemoved(player)) {
                         cancelCurrentSpectation(player.getUuid());
@@ -201,6 +260,25 @@ public class SpectateSessionManager {
     }
 
     private void updateOrbitingPosition(ServerPlayerEntity player, SpectateSession session, double elapsedSeconds) {
+        SpectatePointData point = session.getSpectatePointData();
+        if (point == null) return;
+
+        ViewMode viewMode = session.getViewMode();
+        
+        switch (viewMode) {
+            case ORBIT:
+                updateOrbitPointPosition(player, session, elapsedSeconds);
+                break;
+            case CINEMATIC:
+                updateCinematicPointPosition(player, session, elapsedSeconds);
+                break;
+            default:
+                updateOrbitPointPosition(player, session, elapsedSeconds);
+                break;
+        }
+    }
+
+    private void updateOrbitPointPosition(ServerPlayerEntity player, SpectateSession session, double elapsedSeconds) {
         SpectatePointData point = session.getSpectatePointData();
         if (point == null) return;
 
@@ -256,7 +334,188 @@ public class SpectateSessionManager {
         teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
     }
 
+    private void updateCinematicPointPosition(ServerPlayerEntity player, SpectateSession session, double elapsedSeconds) {
+        SpectatePointData point = session.getSpectatePointData();
+        if (point == null) return;
+        
+        CinematicMode cinematicMode = session.getCinematicMode();
+        if (cinematicMode == null) {
+            cinematicMode = CinematicMode.SLOW_ORBIT;
+        }
+
+        // 确保在正确的维度
+        ServerWorld targetWorld = player.getServerWorld();
+        try {
+            String dimensionStr = point.getDimension();
+            if (dimensionStr.contains(":")) {
+                String[] parts = dimensionStr.split(":");
+                //#if MC >= 12005
+                net.minecraft.util.Identifier dimensionId = net.minecraft.util.Identifier.of(parts[0], parts[1]);
+                //#else
+                //$$net.minecraft.util.Identifier dimensionId = new net.minecraft.util.Identifier(parts[0], parts[1]);
+                //#endif
+                for (ServerWorld world : player.getServer().getWorlds()) {
+                    if (world.getRegistryKey().getValue().equals(dimensionId)) {
+                        targetWorld = world;
+                        break;
+                    }
+                }
+            }
+            //#if MC >= 11900
+            if (targetWorld != null && !player.getWorld().equals(targetWorld)) {
+            //#else
+            //$$if (targetWorld != null && !player.getServerWorld().equals(targetWorld)) {
+            //#endif
+                teleportPlayer(player, targetWorld, player.getX(), player.getY(), player.getZ(), 0, 0);
+            }
+        } catch (Exception e) {
+            // 如果维度解析失败，使用当前世界
+            targetWorld = player.getServerWorld();
+        }
+
+        double centerX = point.getPosition().getX() + 0.5;
+        double centerY = point.getPosition().getY() + 0.5;
+        double centerZ = point.getPosition().getZ() + 0.5;
+        
+        double camXn, camYn, camZn;
+        float yaw, pitch;
+        double distance, heightOffset, rotationSpeed, angleRad, camXo, camZo;
+        double spiralSpeed, riseSpeed;
+        double dx, dy, dz;
+        
+        switch (cinematicMode) {
+            case SLOW_ORBIT:
+                // 慢速环绕，忽略原点配置的旋转速度
+                distance = Math.max(point.getDistance(), 8.0);
+                heightOffset = point.getHeightOffset() + 2.0;
+                rotationSpeed = 0.5; // 很慢的旋转速度
+                
+                angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
+                camXn = centerX + camXo;
+                camYn = centerY + heightOffset;
+                camZn = centerZ + camZo;
+                break;
+                
+            case AERIAL_VIEW:
+                // 高空俯瞰
+                camXn = centerX;
+                camYn = centerY + 25.0; // 高空视角
+                camZn = centerZ;
+                break;
+                
+            case SPIRAL_UP:
+                // 螺旋上升
+                distance = Math.max(point.getDistance(), 8.0);
+                spiralSpeed = 1.0; // 度/秒
+                riseSpeed = 0.3; // 每秒上升格数
+                
+                angleRad = (elapsedSeconds * spiralSpeed) * Math.PI / 180.0;
+                heightOffset = point.getHeightOffset() + (elapsedSeconds * riseSpeed);
+                
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
+                camXn = centerX + camXo;
+                camYn = centerY + heightOffset;
+                camZn = centerZ + camZo;
+                break;
+
+            case FLOATING:
+                // 浮游视角
+                FloatingCamera floatingCam = session.getFloatingCamera();
+                if (floatingCam != null) {
+                    double deltaTime = Math.min(0.1, elapsedSeconds - ((System.currentTimeMillis() - session.startTime) / 1000.0 - 0.05));
+                    if (deltaTime <= 0) deltaTime = 0.05; // 默认50ms
+                    
+                    double[] result = new double[5];
+                    floatingCam.updatePosition(centerX, centerY, centerZ, deltaTime, result);
+                    
+                    camXn = result[0];
+                    camYn = result[1];
+                    camZn = result[2];
+                    
+                    // 浮游视角有自己的yaw/pitch计算
+                    yaw = (float) result[3];
+                    pitch = (float) result[4];
+                    
+                    if (isPlayerRemoved(player)) return;
+                    ServerWorld world = targetWorld != null ? targetWorld : player.getServerWorld();
+                    teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
+                    return; // 直接返回，不需要下面的通用视角计算
+                } else {
+                    // 如果浮游摄像机未初始化，回退到慢速环绕
+                    distance = Math.max(point.getDistance(), 8.0);
+                    heightOffset = point.getHeightOffset() + 2.0;
+                    rotationSpeed = 0.5;
+                    
+                    angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
+                    camXo = Math.sin(angleRad) * distance;
+                    camZo = Math.cos(angleRad) * distance;
+                    camXn = centerX + camXo;
+                    camYn = centerY + heightOffset;
+                    camZn = centerZ + camZo;
+                    
+                    // 计算视角方向，始终看向观察点中心
+                    dx = centerX - camXn;
+                    dy = centerY - camYn;
+                    dz = centerZ - camZn;
+                    yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
+                    pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+
+                    if (isPlayerRemoved(player)) return;
+                    ServerWorld world = targetWorld != null ? targetWorld : player.getServerWorld();
+                    teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
+                    return;
+                }
+                
+            default:
+                // 默认使用慢速环绕
+                distance = Math.max(point.getDistance(), 8.0);
+                heightOffset = point.getHeightOffset() + 2.0;
+                rotationSpeed = 0.5;
+                
+                angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
+                camXn = centerX + camXo;
+                camYn = centerY + heightOffset;
+                camZn = centerZ + camZo;
+                break;
+        }
+        
+        // 计算视角方向，始终看向观察点中心
+        dx = centerX - camXn;
+        dy = centerY - camYn;
+        dz = centerZ - camZn;
+        yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
+        pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+
+        if (isPlayerRemoved(player)) return;
+        ServerWorld world = targetWorld != null ? targetWorld : player.getServerWorld();
+        teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
+    }
+
     private void updatePlayerSpectatePosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds) {
+        SpectateSession session = activeSpectations.get(viewer.getUuid());
+        if (session == null) return;
+
+        ViewMode viewMode = session.getViewMode();
+        
+        switch (viewMode) {
+            case ORBIT:
+                updateOrbitPlayerPosition(viewer, target, elapsedSeconds);
+                break;
+            case FOLLOW:
+                updateFollowPlayerPosition(viewer, target, elapsedSeconds);
+                break;
+            case CINEMATIC:
+                updateCinematicPlayerPosition(viewer, target, elapsedSeconds, session.getCinematicMode());
+                break;
+        }
+    }
+
+    private void updateOrbitPlayerPosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds) {
         // 默认的玩家旁观参数
         double distance = 8.0;  // 默认距离
         double heightOffset = 2.0;  // 默认高度偏移
@@ -289,7 +548,148 @@ public class SpectateSessionManager {
         //#endif
     }
 
+    private void updateFollowPlayerPosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds) {
+        double distance = 5.0;  // 跟随距离
+        double heightOffset = 1.5;  // 高度偏移
+        
+        // 获取目标朝向，在其后方跟随
+        float targetYaw = getPlayerYaw(target);
+        double camXn = target.getX() - Math.sin(Math.toRadians(targetYaw)) * distance;
+        double camZn = target.getZ() + Math.cos(Math.toRadians(targetYaw)) * distance;
+        double camYn = target.getY() + heightOffset;
+        
+        // 始终看向目标
+        double dx = target.getX() - camXn;
+        double dy = target.getY() - camYn;
+        double dz = target.getZ() - camZn;
+        float yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
+        float pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+
+        if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) return;
+        //#if MC >= 11900
+        teleportPlayer(viewer, (ServerWorld) target.getWorld(), camXn, camYn, camZn, yaw, pitch);
+        //#else
+        //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
+        //#endif
+    }
+
+    private void updateCinematicPlayerPosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds, CinematicMode cinematicMode) {
+        if (cinematicMode == null) {
+            cinematicMode = CinematicMode.SLOW_ORBIT;
+        }
+        
+        double camXn, camYn, camZn;
+        float yaw, pitch;
+        double distance, heightOffset, rotationSpeed, angleRad, camXo, camZo;
+        double spiralSpeed, riseSpeed;
+        
+        switch (cinematicMode) {
+            case SLOW_ORBIT:
+                // 慢速环绕
+                distance = 12.0;
+                heightOffset = 3.0;
+                rotationSpeed = 1.0; // 1度/秒
+                
+                angleRad = 0;
+                if (rotationSpeed > 0) {
+                    double periodSec = 360.0 / rotationSpeed;
+                    angleRad = (elapsedSeconds % periodSec) / periodSec * 2 * Math.PI;
+                }
+                
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
+                camXn = target.getX() + camXo;
+                camYn = target.getY() + heightOffset;
+                camZn = target.getZ() + camZo;
+                break;
+                
+            case AERIAL_VIEW:
+                // 高空俯瞰
+                camXn = target.getX();
+                camYn = target.getY() + 20.0;
+                camZn = target.getZ();
+                break;
+                
+            case SPIRAL_UP:
+                // 螺旋上升
+                distance = 8.0;
+                spiralSpeed = 2.0; // 2度/秒
+                riseSpeed = 0.5; // 每秒上升0.5格
+                
+                angleRad = (elapsedSeconds * spiralSpeed) * Math.PI / 180.0;
+                heightOffset = 2.0 + (elapsedSeconds * riseSpeed);
+                
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
+                camXn = target.getX() + camXo;
+                camYn = target.getY() + heightOffset;
+                camZn = target.getZ() + camZo;
+                break;
+
+            case FLOATING:
+                // 浮游视角
+                SpectateSession session = activeSpectations.get(viewer.getUuid());
+                if (session != null) {
+                    FloatingCamera floatingCam = session.getFloatingCamera();
+                    if (floatingCam != null) {
+                        double deltaTime = Math.min(0.1, elapsedSeconds - ((System.currentTimeMillis() - session.startTime) / 1000.0 - 0.05));
+                        if (deltaTime <= 0) deltaTime = 0.05; // 默认50ms
+                        
+                        double[] result = new double[5];
+                        floatingCam.updatePosition(target.getX(), target.getY(), target.getZ(), deltaTime, result);
+                        
+                        camXn = result[0];
+                        camYn = result[1];
+                        camZn = result[2];
+                        
+                        // 浮游视角有自己的yaw/pitch计算
+                        yaw = (float) result[3];
+                        pitch = (float) result[4];
+                        
+                        if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) return;
+                        //#if MC >= 11900
+                        teleportPlayer(viewer, (ServerWorld) target.getWorld(), camXn, camYn, camZn, yaw, pitch);
+                        //#else
+                        //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
+                        //#endif
+                        return; // 直接返回，不需要下面的通用视角计算
+                    } else {
+                        // 如果浮游摄像机未初始化，回退到慢速环绕
+                        updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                        return;
+                    }
+                } else {
+                    // 如果session未找到，回退到慢速环绕
+                    updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                    return;
+                }
+                
+            default:
+                // 默认使用慢速环绕
+                updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                return;
+        }
+        
+        // 计算视角方向，始终看向目标玩家
+        double dx = target.getX() - camXn;
+        double dy = target.getY() - camYn;
+        double dz = target.getZ() - camZn;
+        yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
+        pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+
+        if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) return;
+        //#if MC >= 11900
+        teleportPlayer(viewer, (ServerWorld) target.getWorld(), camXn, camYn, camZn, yaw, pitch);
+        //#else
+        //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
+        //#endif
+    }
+
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force) {
+        spectatePlayer(viewer, target, force, ViewMode.ORBIT, null);
+    }
+
+    public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force, ViewMode viewMode, CinematicMode cinematicMode) {
         if (!force && isSpectating(viewer.getUuid())) {
             viewer.sendMessage(configManager.getMessage("spectate_already_running"), false);
             return;
@@ -298,7 +698,7 @@ public class SpectateSessionManager {
         savePlayerOriginalState(viewer);
         cancelCurrentSpectation(viewer.getUuid());
 
-        SpectateSession session = new SpectateSession(target);
+        SpectateSession session = new SpectateSession(target, viewMode, cinematicMode);
         activeSpectations.put(viewer.getUuid(), session);
 
         MinecraftServer server = SpectateMod.getServer();
@@ -306,12 +706,15 @@ public class SpectateSessionManager {
 
         server.execute(() -> {
             changeGameMode(viewer, GameMode.SPECTATOR);
-            viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player", Map.of("name", target.getName().getString())), false);
+            
+            String modeMessage = getViewModeMessage(viewMode, cinematicMode);
+            viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player_with_mode", 
+                Map.of("name", target.getName().getString(), "mode", modeMessage)), false);
             
             // 初始位置设置
             updatePlayerSpectatePosition(viewer, target, 0);
             
-            // 开始周期性更新位置，实现360°旋转
+            // 开始周期性更新位置
             session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
                 if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) {
                     cancelCurrentSpectation(viewer.getUuid());
@@ -335,6 +738,28 @@ public class SpectateSessionManager {
                 updatePlayerSpectatePosition(viewer, target, elapsed);
             }, 50, 50, TimeUnit.MILLISECONDS);
         });
+    }
+
+    private String getViewModeMessage(ViewMode viewMode, CinematicMode cinematicMode) {
+        switch (viewMode) {
+            case ORBIT:
+                return "环绕模式";
+            case FOLLOW:
+                return "跟随模式";
+            case CINEMATIC:
+                if (cinematicMode != null) {
+                    switch (cinematicMode) {
+                        case SLOW_ORBIT: return "电影模式 - 慢速环绕";
+                        case AERIAL_VIEW: return "电影模式 - 高空俯瞰";
+                        case SPIRAL_UP: return "电影模式 - 螺旋上升";
+                        case FLOATING: return "电影模式 - 浮游视角";
+                        default: return "电影模式";
+                    }
+                }
+                return "电影模式";
+            default:
+                return "普通模式";
+        }
     }
 
     public boolean stopSpectating(ServerPlayerEntity player) {
