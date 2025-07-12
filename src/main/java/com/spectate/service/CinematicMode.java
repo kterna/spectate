@@ -10,7 +10,8 @@ public enum CinematicMode {
     SPIRAL_UP("spiral_up"),           // 螺旋上升
     FIGURE_EIGHT("figure_eight"),     // 8字形轨迹
     PENDULUM("pendulum"),             // 钟摆运动
-    SMOOTH_FOLLOW("smooth_follow");   // 平滑跟随
+    SMOOTH_FOLLOW("smooth_follow"),   // 平滑跟随
+    FLOATING("floating");             // 浮游视角
 
     private final String name;
 

@@ -116,6 +116,7 @@ public class SpectateSessionManager {
         private final boolean isPoint;
         private final ViewMode viewMode;
         private final CinematicMode cinematicMode;
+        private FloatingCamera floatingCamera; // 浮游摄像机实例
 
         SpectateSession(SpectatePointData pointData) {
             this.spectatePointData = pointData;
@@ -124,6 +125,7 @@ public class SpectateSessionManager {
             this.viewMode = ViewMode.ORBIT;
             this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
         }
 
         SpectateSession(SpectatePointData pointData, ViewMode viewMode, CinematicMode cinematicMode) {
@@ -133,6 +135,7 @@ public class SpectateSessionManager {
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
             this.cinematicMode = cinematicMode;
             this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
         }
 
         SpectateSession(ServerPlayerEntity target) {
@@ -142,6 +145,7 @@ public class SpectateSessionManager {
             this.viewMode = ViewMode.ORBIT;
             this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
         }
 
         SpectateSession(ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
@@ -151,6 +155,17 @@ public class SpectateSessionManager {
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
             this.cinematicMode = cinematicMode;
             this.startTime = System.currentTimeMillis();
+            initializeFloatingCamera();
+        }
+
+        private void initializeFloatingCamera() {
+            if (cinematicMode == CinematicMode.FLOATING) {
+                floatingCamera = new FloatingCamera();
+                // 可以根据需要调整参数
+                floatingCamera.setFloatingStrength(0.5);
+                floatingCamera.setFloatingSpeed(0.3);
+                floatingCamera.setOrbitRadius(8.0);
+            }
         }
 
         void cancel() {
@@ -178,6 +193,10 @@ public class SpectateSessionManager {
 
         CinematicMode getCinematicMode() {
             return cinematicMode;
+        }
+
+        FloatingCamera getFloatingCamera() {
+            return floatingCamera;
         }
     }
 
@@ -360,17 +379,21 @@ public class SpectateSessionManager {
         
         double camXn, camYn, camZn;
         float yaw, pitch;
+        double distance, heightOffset, rotationSpeed, angleRad, camXo, camZo;
+        double baseDistance, distanceVariation, fixedAngle, spiralSpeed, riseSpeed;
+        double figureEightSpeed, t, pendulumSpeed, swingAngle, followAngle;
+        double dx, dy, dz;
         
         switch (cinematicMode) {
             case SLOW_ORBIT:
                 // 慢速环绕，忽略原点配置的旋转速度
-                double distance = Math.max(point.getDistance(), 8.0);
-                double heightOffset = point.getHeightOffset() + 2.0;
-                double rotationSpeed = 0.5; // 很慢的旋转速度
+                distance = Math.max(point.getDistance(), 8.0);
+                heightOffset = point.getHeightOffset() + 2.0;
+                rotationSpeed = 0.5; // 很慢的旋转速度
                 
-                double angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
-                double camXo = Math.sin(angleRad) * distance;
-                double camZo = Math.cos(angleRad) * distance;
+                angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
+                camXo = Math.sin(angleRad) * distance;
+                camZo = Math.cos(angleRad) * distance;
                 camXn = centerX + camXo;
                 camYn = centerY + heightOffset;
                 camZn = centerZ + camZo;
@@ -378,13 +401,13 @@ public class SpectateSessionManager {
                 
             case DOLLY_ZOOM:
                 // 推拉镜头效果 - 距离变化
-                double baseDistance = Math.max(point.getDistance(), 8.0);
-                double distanceVariation = baseDistance * 0.6;
+                baseDistance = Math.max(point.getDistance(), 8.0);
+                distanceVariation = baseDistance * 0.6;
                 distance = baseDistance + distanceVariation * Math.sin(elapsedSeconds * 0.3);
                 heightOffset = point.getHeightOffset();
                 
                 // 固定角度
-                double fixedAngle = Math.PI / 4;
+                fixedAngle = Math.PI / 4;
                 camXo = Math.sin(fixedAngle) * distance;
                 camZo = Math.cos(fixedAngle) * distance;
                 camXn = centerX + camXo;
@@ -402,8 +425,8 @@ public class SpectateSessionManager {
             case SPIRAL_UP:
                 // 螺旋上升
                 distance = Math.max(point.getDistance(), 8.0);
-                double spiralSpeed = 1.0; // 度/秒
-                double riseSpeed = 0.3; // 每秒上升格数
+                spiralSpeed = 1.0; // 度/秒
+                riseSpeed = 0.3; // 每秒上升格数
                 
                 angleRad = (elapsedSeconds * spiralSpeed) * Math.PI / 180.0;
                 heightOffset = point.getHeightOffset() + (elapsedSeconds * riseSpeed);
@@ -419,9 +442,9 @@ public class SpectateSessionManager {
                 // 8字形轨迹
                 distance = Math.max(point.getDistance(), 10.0);
                 heightOffset = point.getHeightOffset() + 2.0;
-                double figureEightSpeed = 0.3; // 周期速度
+                figureEightSpeed = 0.3; // 周期速度
                 
-                double t = elapsedSeconds * figureEightSpeed * 2 * Math.PI;
+                t = elapsedSeconds * figureEightSpeed * 2 * Math.PI;
                 camXo = distance * Math.sin(t);
                 camZo = distance * Math.sin(t) * Math.cos(t);
                 camXn = centerX + camXo;
@@ -433,9 +456,9 @@ public class SpectateSessionManager {
                 // 钟摆运动
                 distance = Math.max(point.getDistance(), 12.0);
                 heightOffset = point.getHeightOffset() + 3.0;
-                double pendulumSpeed = 0.8;
+                pendulumSpeed = 0.8;
                 
-                double swingAngle = Math.PI / 3 * Math.sin(elapsedSeconds * pendulumSpeed); // ±60度摆动
+                swingAngle = Math.PI / 3 * Math.sin(elapsedSeconds * pendulumSpeed); // ±60度摆动
                 camXo = Math.sin(swingAngle) * distance;
                 camZo = Math.cos(swingAngle) * distance;
                 camXn = centerX + camXo;
@@ -456,6 +479,54 @@ public class SpectateSessionManager {
                 camYn = centerY + heightOffset;
                 camZn = centerZ + camZo;
                 break;
+
+            case FLOATING:
+                // 浮游视角
+                FloatingCamera floatingCam = session.getFloatingCamera();
+                if (floatingCam != null) {
+                    double deltaTime = Math.min(0.1, elapsedSeconds - ((System.currentTimeMillis() - session.startTime) / 1000.0 - 0.05));
+                    if (deltaTime <= 0) deltaTime = 0.05; // 默认50ms
+                    
+                    double[] result = new double[5];
+                    floatingCam.updatePosition(centerX, centerY, centerZ, deltaTime, result);
+                    
+                    camXn = result[0];
+                    camYn = result[1];
+                    camZn = result[2];
+                    
+                    // 浮游视角有自己的yaw/pitch计算
+                    yaw = (float) result[3];
+                    pitch = (float) result[4];
+                    
+                    if (isPlayerRemoved(player)) return;
+                    ServerWorld world = targetWorld != null ? targetWorld : player.getServerWorld();
+                    teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
+                    return; // 直接返回，不需要下面的通用视角计算
+                } else {
+                    // 如果浮游摄像机未初始化，回退到慢速环绕
+                    distance = Math.max(point.getDistance(), 8.0);
+                    heightOffset = point.getHeightOffset() + 2.0;
+                    rotationSpeed = 0.5;
+                    
+                    angleRad = (elapsedSeconds * rotationSpeed) * Math.PI / 180.0;
+                    camXo = Math.sin(angleRad) * distance;
+                    camZo = Math.cos(angleRad) * distance;
+                    camXn = centerX + camXo;
+                    camYn = centerY + heightOffset;
+                    camZn = centerZ + camZo;
+                    
+                    // 计算视角方向，始终看向观察点中心
+                    dx = centerX - camXn;
+                    dy = centerY - camYn;
+                    dz = centerZ - camZn;
+                    yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
+                    pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+
+                    if (isPlayerRemoved(player)) return;
+                    ServerWorld world = targetWorld != null ? targetWorld : player.getServerWorld();
+                    teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
+                    return;
+                }
                 
             default:
                 // 默认使用慢速环绕
@@ -473,9 +544,9 @@ public class SpectateSessionManager {
         }
         
         // 计算视角方向，始终看向观察点中心
-        double dx = centerX - camXn;
-        double dy = centerY - camYn;
-        double dz = centerZ - camZn;
+        dx = centerX - camXn;
+        dy = centerY - camYn;
+        dz = centerZ - camZn;
         yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90f;
         pitch = (float) (-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
 
@@ -669,6 +740,44 @@ public class SpectateSessionManager {
                 camZn = target.getZ() - Math.cos(followAngle) * distance;
                 camYn = target.getY() + heightOffset;
                 break;
+
+            case FLOATING:
+                // 浮游视角
+                SpectateSession session = activeSpectations.get(viewer.getUuid());
+                if (session != null) {
+                    FloatingCamera floatingCam = session.getFloatingCamera();
+                    if (floatingCam != null) {
+                        double deltaTime = Math.min(0.1, elapsedSeconds - ((System.currentTimeMillis() - session.startTime) / 1000.0 - 0.05));
+                        if (deltaTime <= 0) deltaTime = 0.05; // 默认50ms
+                        
+                        double[] result = new double[5];
+                        floatingCam.updatePosition(target.getX(), target.getY(), target.getZ(), deltaTime, result);
+                        
+                        camXn = result[0];
+                        camYn = result[1];
+                        camZn = result[2];
+                        
+                        // 浮游视角有自己的yaw/pitch计算
+                        yaw = (float) result[3];
+                        pitch = (float) result[4];
+                        
+                        if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) return;
+                        //#if MC >= 11900
+                        teleportPlayer(viewer, (ServerWorld) target.getWorld(), camXn, camYn, camZn, yaw, pitch);
+                        //#else
+                        //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), camXn, camYn, camZn, yaw, pitch);
+                        //#endif
+                        return; // 直接返回，不需要下面的通用视角计算
+                    } else {
+                        // 如果浮游摄像机未初始化，回退到慢速环绕
+                        updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                        return;
+                    }
+                } else {
+                    // 如果session未找到，回退到慢速环绕
+                    updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                    return;
+                }
                 
             default:
                 // 默认使用慢速环绕
@@ -762,6 +871,7 @@ public class SpectateSessionManager {
                         case FIGURE_EIGHT: return "电影模式 - 8字轨迹";
                         case PENDULUM: return "电影模式 - 钟摆运动";
                         case SMOOTH_FOLLOW: return "电影模式 - 平滑跟随";
+                        case FLOATING: return "电影模式 - 浮游视角";
                         default: return "电影模式";
                     }
                 }

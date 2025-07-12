@@ -182,7 +182,7 @@ public class SpectateCommand {
                                 .then(CommandManager.argument("mode", StringArgumentType.word())
                                         .suggests((c,b)->CommandSource.suggestMatching(new String[]{
                                             "slow_orbit", "dolly_zoom", "aerial_view", "spiral_up", 
-                                            "figure_eight", "pendulum", "smooth_follow"
+                                            "figure_eight", "pendulum", "smooth_follow", "floating"
                                         }, b))
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
@@ -328,7 +328,7 @@ public class SpectateCommand {
                                 .then(CommandManager.argument("mode", StringArgumentType.word())
                                         .suggests((c,b)->CommandSource.suggestMatching(new String[]{
                                             "slow_orbit", "dolly_zoom", "aerial_view", "spiral_up", 
-                                            "figure_eight", "pendulum", "smooth_follow"
+                                            "figure_eight", "pendulum", "smooth_follow", "floating"
                                         }, b))
                                         .executes(ctx->{
                                             String targetName = StringArgumentType.getString(ctx, "target");
