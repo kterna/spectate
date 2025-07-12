@@ -17,6 +17,14 @@ public class SpectateConfig {
         public double spectate_distance = 20.0;
         public double spectate_height_offset = 5.0;
         public double spectate_rotation_speed = 1.0;
+        public double floating_strength = 0.5;
+        public double floating_speed = 0.3;
+        public double floating_orbit_radius = 8.0;
+        public double floating_height_variation = 0.8;
+        public double floating_breathing_frequency = 0.5;
+        public double floating_damping_factor = 0.95;
+        public double floating_attraction_factor = 0.3;
+        public double floating_prediction_factor = 2.0;
     }
 
     public static class Messages {
@@ -41,7 +49,9 @@ public class SpectateConfig {
 
         public String player_not_found = "未找到玩家: {name}";
         public String spectate_start_player = "你现在正在观察玩家: {name}";
+        public String spectate_start_player_with_mode = "你现在正在观察玩家: {name} ({mode})";
         public String spectate_start_point = "你现在正在观察点: {name}";
+        public String spectate_start_point_with_mode = "你现在正在观察点: {name} ({mode})";
         public String spectate_start_coords = "你现在正在观察坐标: {coords}";
         public String spectate_stop = "你已停止观察。";
         public String spectate_already_running = "已在观察中。请先使用 /cspectate stop 停止。";
