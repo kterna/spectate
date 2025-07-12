@@ -12,6 +12,8 @@ import com.spectate.config.SpectateConfig;
 import com.spectate.data.SpectatePointData;
 import com.spectate.service.SpectatePointManager;
 import com.spectate.service.ServerSpectateManager;
+import com.spectate.service.ViewMode;
+import com.spectate.service.CinematicMode;
 //#if MC >= 11900
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.text.Text;
@@ -164,7 +166,37 @@ public class SpectateCommand {
                             }
                             ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point);
                             return 1;
-                        }));
+                        })
+                        .then(CommandManager.literal("cinematic")
+                                .executes(ctx -> {
+                                    String name = StringArgumentType.getString(ctx, "name");
+                                    SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
+                                    if(point==null){
+                                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
+                                        return 0;
+                                    }
+                                    ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point, 
+                                        ViewMode.CINEMATIC, CinematicMode.SLOW_ORBIT);
+                                    return 1;
+                                })
+                                .then(CommandManager.argument("mode", StringArgumentType.word())
+                                        .suggests((c,b)->CommandSource.suggestMatching(new String[]{
+                                            "slow_orbit", "dolly_zoom", "aerial_view", "spiral_up", 
+                                            "figure_eight", "pendulum", "smooth_follow"
+                                        }, b))
+                                        .executes(ctx -> {
+                                            String name = StringArgumentType.getString(ctx, "name");
+                                            String modeStr = StringArgumentType.getString(ctx, "mode");
+                                            SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
+                                            if(point==null){
+                                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
+                                                return 0;
+                                            }
+                                            CinematicMode cinematicMode = CinematicMode.fromString(modeStr);
+                                            ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point, 
+                                                ViewMode.CINEMATIC, cinematicMode);
+                                            return 1;
+                                        }))));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> buildStopCommand(){
@@ -268,7 +300,49 @@ public class SpectateCommand {
                             }
                             ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target);
                             return 1;
-                        }));
+                        })
+                        .then(CommandManager.literal("follow")
+                                .executes(ctx->{
+                                    String targetName = StringArgumentType.getString(ctx, "target");
+                                    ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                                    if(target==null){
+                                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                        return 0;
+                                    }
+                                    ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target, 
+                                        ViewMode.FOLLOW, null);
+                                    return 1;
+                                }))
+                        .then(CommandManager.literal("cinematic")
+                                .executes(ctx->{
+                                    String targetName = StringArgumentType.getString(ctx, "target");
+                                    ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                                    if(target==null){
+                                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                        return 0;
+                                    }
+                                    ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target, 
+                                        ViewMode.CINEMATIC, CinematicMode.SLOW_ORBIT);
+                                    return 1;
+                                })
+                                .then(CommandManager.argument("mode", StringArgumentType.word())
+                                        .suggests((c,b)->CommandSource.suggestMatching(new String[]{
+                                            "slow_orbit", "dolly_zoom", "aerial_view", "spiral_up", 
+                                            "figure_eight", "pendulum", "smooth_follow"
+                                        }, b))
+                                        .executes(ctx->{
+                                            String targetName = StringArgumentType.getString(ctx, "target");
+                                            String modeStr = StringArgumentType.getString(ctx, "mode");
+                                            ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                                            if(target==null){
+                                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                                return 0;
+                                            }
+                                            CinematicMode cinematicMode = CinematicMode.fromString(modeStr);
+                                            ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target, 
+                                                ViewMode.CINEMATIC, cinematicMode);
+                                            return 1;
+                                        }))));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> buildCoordsCommand() {

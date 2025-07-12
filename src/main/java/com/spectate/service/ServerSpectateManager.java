@@ -48,10 +48,24 @@ public class ServerSpectateManager {
     }
 
     /**
+     * 使用指定视角模式观察一个已定义的点。
+     */
+    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, ViewMode viewMode, CinematicMode cinematicMode) {
+        sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
+    }
+
+    /**
      * 观察另一个玩家。
      */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target) {
         sessionManager.spectatePlayer(viewer, target, false);
+    }
+
+    /**
+     * 使用指定视角模式观察另一个玩家。
+     */
+    public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
+        sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
     }
 
     /**
