@@ -45,6 +45,10 @@ public class ConfigManager {
         return config;
     }
 
+    public void reloadConfig() {
+        loadConfig();
+    }
+
     private void loadConfig() {
         try {
             if (Files.notExists(configFile)) {
@@ -102,10 +106,85 @@ public class ConfigManager {
     private String getMessageTemplate(String key) {
         try {
             // Use reflection to get the message from the config object
-            return (String) SpectateConfig.Messages.class.getField(key).get(config.messages);
+            return (String) SpectateConfig.Messages.class.getField(key).get(config.lang);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             SpectateMod.LOGGER.warn("[Spectate] Missing message key in config: " + key);
             return "Missing message: " + key;
+        }
+    }
+
+    public Object getConfigValue(String path) {
+        try {
+            String[] parts = path.split("\\.");
+            if (parts.length < 2) {
+                return null;
+            }
+
+            String category = parts[0];
+            String key = parts[1];
+
+            if ("settings".equals(category)) {
+                return SpectateConfig.Settings.class.getField(key).get(config.settings);
+            } else if ("lang".equals(category)) {
+                return SpectateConfig.Messages.class.getField(key).get(config.lang);
+            }
+            return null;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            SpectateMod.LOGGER.warn("[Spectate] Missing config key: " + path);
+            return null;
+        }
+    }
+
+    public boolean setConfigValue(String path, String value) {
+        try {
+            String[] parts = path.split("\\.");
+            if (parts.length < 2) {
+                return false;
+            }
+
+            String category = parts[0];
+            String key = parts[1];
+
+            Object targetObject;
+            java.lang.reflect.Field field;
+
+            if ("settings".equals(category)) {
+                targetObject = config.settings;
+                field = SpectateConfig.Settings.class.getField(key);
+            } else if ("lang".equals(category)) {
+                targetObject = config.lang;
+                field = SpectateConfig.Messages.class.getField(key);
+            } else {
+                return false;
+            }
+
+            Class<?> fieldType = field.getType();
+            Object convertedValue;
+
+            if (fieldType == int.class) {
+                convertedValue = Integer.parseInt(value);
+            } else if (fieldType == double.class) {
+                convertedValue = Double.parseDouble(value);
+            } else if (fieldType == float.class) {
+                convertedValue = Float.parseFloat(value);
+            } else if (fieldType == boolean.class) {
+                convertedValue = Boolean.parseBoolean(value);
+            } else if (fieldType == String.class) {
+                convertedValue = value;
+            } else {
+                return false;
+            }
+
+            field.set(targetObject, convertedValue);
+
+            // 保存配置到文件
+            try (FileWriter writer = new FileWriter(configFile.toFile())) {
+                GSON.toJson(config, writer);
+                return true;
+            }
+        } catch (Exception e) {
+            SpectateMod.LOGGER.warn("[Spectate] Failed to set config value: " + path + " = " + value, e);
+            return false;
         }
     }
 }

@@ -46,7 +46,7 @@ public class CycleService {
 
         PlayerCycleSession(ConfigManager configManager) {
             this.pointList = new ArrayList<>();
-            this.intervalSeconds = configManager.getConfig().defaults.cycle_interval_seconds;
+            this.intervalSeconds = configManager.getConfig().settings.cycle_interval_seconds;
             this.index = 0;
             this.running = false;
         }

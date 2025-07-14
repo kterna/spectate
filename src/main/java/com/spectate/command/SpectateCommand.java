@@ -76,6 +76,7 @@ public class SpectateCommand {
         root.then(buildCycleCommand());
         root.then(buildPlayerCommand());
         root.then(buildCoordsCommand());
+        root.then(buildConfigCommand());
 
         dispatcher.register(root);
     }
@@ -91,13 +92,13 @@ public class SpectateCommand {
                 .executes(ctx -> {
                     String name = StringArgumentType.getString(ctx, "name");
                     Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
-                    SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+                    SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
                     //#if MC >= 11900
                     String dimension = ctx.getSource().getPlayer().getWorld().getRegistryKey().getValue().toString();
                     //#else
                     //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
                     //#endif
-                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, name);
+                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, name);
                     SpectatePointManager.getInstance().addPoint(name, data);
                     sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                     return 1;
@@ -107,13 +108,13 @@ public class SpectateCommand {
                             String name = StringArgumentType.getString(ctx, "name");
                             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
                             String desc = StringArgumentType.getString(ctx, "description");
-                            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
+                            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
                             //#if MC >= 11900
                             String dimension = ctx.getSource().getPlayer().getWorld().getRegistryKey().getValue().toString();
                             //#else
                             //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
                             //#endif
-                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed, desc);
+                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, desc);
                             SpectatePointManager.getInstance().addPoint(name, data);
                             sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                             return 1;
@@ -349,8 +350,8 @@ public class SpectateCommand {
         // Base command: /cspectate coords <pos>
         posArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
-            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, defaults.spectate_distance, defaults.spectate_height_offset, defaults.spectate_rotation_speed);
+            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed);
             return 1;
         });
 
@@ -359,8 +360,8 @@ public class SpectateCommand {
         distArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double dist = DoubleArgumentType.getDouble(ctx, "distance");
-            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, defaults.spectate_height_offset, defaults.spectate_rotation_speed);
+            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, settings.spectate_height_offset, settings.spectate_rotation_speed);
             return 1;
         });
 
@@ -370,8 +371,8 @@ public class SpectateCommand {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             double dist = DoubleArgumentType.getDouble(ctx, "distance");
             double h = DoubleArgumentType.getDouble(ctx, "heightOffset");
-            SpectateConfig.Defaults defaults = CONFIG_MANAGER.getConfig().defaults;
-            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, defaults.spectate_rotation_speed);
+            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, settings.spectate_rotation_speed);
             return 1;
         });
 
@@ -392,5 +393,298 @@ public class SpectateCommand {
         posArg.then(distArg);
 
         return CommandManager.literal("coords").then(posArg);
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildConfigCommand() {
+        LiteralArgumentBuilder<ServerCommandSource> config = CommandManager.literal("config");
+
+        // config reload
+        config.then(CommandManager.literal("reload")
+                .requires(source -> source.hasPermissionLevel(2)) // 需要OP权限
+                .executes(ctx -> {
+                    CONFIG_MANAGER.reloadConfig();
+                    sendFeedback(ctx.getSource(), 
+                        //#if MC >= 11900
+                        Text.literal("§a[Spectate] 配置已重新加载")
+                        //#else
+                        //$$new LiteralText("§a[Spectate] 配置已重新加载")
+                        //#endif
+                        , false);
+                    return 1;
+                }));
+
+        // config get <path>
+        config.then(CommandManager.literal("get")
+                .requires(source -> source.hasPermissionLevel(2))
+                .then(CommandManager.argument("path", StringArgumentType.string())
+                        .suggests((c, b) -> {
+                            // 提供settings和lang的字段建议
+                            java.util.List<String> suggestions = new java.util.ArrayList<>();
+                            
+                            // 添加settings字段
+                            java.lang.reflect.Field[] settingsFields = SpectateConfig.Settings.class.getFields();
+                            for (java.lang.reflect.Field field : settingsFields) {
+                                suggestions.add("settings." + field.getName());
+                            }
+                            
+                            // 添加lang字段
+                            java.lang.reflect.Field[] langFields = SpectateConfig.Messages.class.getFields();
+                            for (java.lang.reflect.Field field : langFields) {
+                                suggestions.add("lang." + field.getName());
+                            }
+                            
+                            return CommandSource.suggestMatching(suggestions, b);
+                        })
+                        .executes(ctx -> {
+                            String path = StringArgumentType.getString(ctx, "path");
+                            Object value = CONFIG_MANAGER.getConfigValue(path);
+                            if (value == null) {
+                                sendError(ctx.getSource(), 
+                                    //#if MC >= 11900
+                                    Text.literal("§c[Spectate] 配置路径不存在: " + path)
+                                    //#else
+                                    //$$new LiteralText("§c[Spectate] 配置路径不存在: " + path)
+                                    //#endif
+                                );
+                                return 0;
+                            }
+                            sendFeedback(ctx.getSource(), 
+                                //#if MC >= 11900
+                                Text.literal("§a[Spectate] " + path + " = " + value)
+                                //#else
+                                //$$new LiteralText("§a[Spectate] " + path + " = " + value)
+                                //#endif
+                                , false);
+                            return 1;
+                        })));
+
+        // config set <path> <value>
+        config.then(CommandManager.literal("set")
+                .requires(source -> source.hasPermissionLevel(2))
+                .then(CommandManager.argument("path", StringArgumentType.string())
+                        .suggests((c, b) -> {
+                            // 提供settings和lang的字段建议
+                            java.util.List<String> suggestions = new java.util.ArrayList<>();
+                            
+                            // 添加settings字段
+                            java.lang.reflect.Field[] settingsFields = SpectateConfig.Settings.class.getFields();
+                            for (java.lang.reflect.Field field : settingsFields) {
+                                suggestions.add("settings." + field.getName());
+                            }
+                            
+                            // 添加lang字段
+                            java.lang.reflect.Field[] langFields = SpectateConfig.Messages.class.getFields();
+                            for (java.lang.reflect.Field field : langFields) {
+                                suggestions.add("lang." + field.getName());
+                            }
+                            
+                            return CommandSource.suggestMatching(suggestions, b);
+                        })
+                        .then(CommandManager.argument("value", StringArgumentType.string())
+                                .executes(ctx -> {
+                                    String path = StringArgumentType.getString(ctx, "path");
+                                    String value = StringArgumentType.getString(ctx, "value");
+                                    boolean success = CONFIG_MANAGER.setConfigValue(path, value);
+                                    if (success) {
+                                        sendFeedback(ctx.getSource(), 
+                                            //#if MC >= 11900
+                                            Text.literal("§a[Spectate] 配置已更新: " + path + " = " + value)
+                                            //#else
+                                            //$$new LiteralText("§a[Spectate] 配置已更新: " + path + " = " + value)
+                                            //#endif
+                                            , false);
+                                        return 1;
+                                    } else {
+                                        sendError(ctx.getSource(), 
+                                            //#if MC >= 11900
+                                            Text.literal("§c[Spectate] 配置更新失败: " + path)
+                                            //#else
+                                            //$$new LiteralText("§c[Spectate] 配置更新失败: " + path)
+                                            //#endif
+                                        );
+                                        return 0;
+                                    }
+                                }))));
+
+        // config list [category]
+        config.then(CommandManager.literal("list")
+                .requires(source -> source.hasPermissionLevel(2))
+                .executes(ctx -> {
+                    // 列出所有defaults配置
+                    sendFeedback(ctx.getSource(), 
+                        //#if MC >= 11900
+                        Text.literal("§e[Spectate] 功能设置:")
+                        //#else
+                        //$$new LiteralText("§e[Spectate] 默认配置:")
+                        //#endif
+                        , false);
+                    java.lang.reflect.Field[] settingsFields = SpectateConfig.Settings.class.getFields();
+                    for (java.lang.reflect.Field field : settingsFields) {
+                        try {
+                            Object value = field.get(CONFIG_MANAGER.getConfig().settings);
+                            String comment = getFieldComment(field.getName());
+                            
+                            String displayText = "  §7settings." + field.getName() + " = " + value;
+                            if (!comment.isEmpty()) {
+                                displayText += " §8# " + comment;
+                            }
+                            
+                            sendFeedback(ctx.getSource(), 
+                                //#if MC >= 11900
+                                Text.literal(displayText)
+                                //#else
+                                //$$new LiteralText(displayText)
+                                //#endif
+                                , false);
+                        } catch (IllegalAccessException e) {
+                            sendFeedback(ctx.getSource(), 
+                                //#if MC >= 11900
+                                Text.literal("  §7settings." + field.getName() + " = [无法访问]")
+                                //#else
+                                //$$new LiteralText("  §7settings." + field.getName() + " = [无法访问]")
+                                //#endif
+                                , false);
+                        }
+                    }
+
+                    // 列出所有messages配置
+                    sendFeedback(ctx.getSource(), 
+                        //#if MC >= 11900
+                        Text.literal("§e[Spectate] 消息配置:")
+                        //#else
+                        //$$new LiteralText("§e[Spectate] 消息配置:")
+                        //#endif
+                        , false);
+                    java.lang.reflect.Field[] messageFields = SpectateConfig.Messages.class.getFields();
+                    for (java.lang.reflect.Field field : messageFields) {
+                        try {
+                            Object value = field.get(CONFIG_MANAGER.getConfig().lang);
+                            sendFeedback(ctx.getSource(), 
+                                //#if MC >= 11900
+                                Text.literal("  §7lang." + field.getName() + " = \"" + value + "\"")
+                                //#else
+                                //$$new LiteralText("  §7messages." + field.getName() + " = \"" + value + "\"")
+                                //#endif
+                                , false);
+                        } catch (IllegalAccessException e) {
+                            // 忽略
+                        }
+                    }
+                    return 1;
+                })
+                .then(CommandManager.argument("category", StringArgumentType.string())
+                        .suggests((c, b) -> CommandSource.suggestMatching(new String[]{"settings", "lang"}, b))
+                        .executes(ctx -> {
+                            String category = StringArgumentType.getString(ctx, "category");
+                            java.lang.reflect.Field[] fields;
+
+                            if ("settings".equals(category)) {
+                                fields = SpectateConfig.Settings.class.getFields();
+                                sendFeedback(ctx.getSource(), 
+                                    //#if MC >= 11900
+                                    Text.literal("§e[Spectate] 功能设置:")
+                                    //#else
+                                    //$$new LiteralText("§e[Spectate] 默认配置:")
+                                    //#endif
+                                    , false);
+                                for (java.lang.reflect.Field field : fields) {
+                                    try {
+                                        Object value = field.get(CONFIG_MANAGER.getConfig().settings);
+                                        String comment = getFieldComment(field.getName());
+                                        
+                                        String displayText = "  §7settings." + field.getName() + " = " + value;
+                                        if (!comment.isEmpty()) {
+                                            displayText += " §8# " + comment;
+                                        }
+                                        
+                                        sendFeedback(ctx.getSource(), 
+                                            //#if MC >= 11900
+                                            Text.literal(displayText)
+                                            //#else
+                                            //$$new LiteralText(displayText)
+                                            //#endif
+                                            , false);
+                                    } catch (IllegalAccessException e) {
+                                        sendFeedback(ctx.getSource(), 
+                                            //#if MC >= 11900
+                                            Text.literal("  §7settings." + field.getName() + " = [无法访问]")
+                                            //#else
+                                            //$$new LiteralText("  §7settings." + field.getName() + " = [无法访问]")
+                                            //#endif
+                                            , false);
+                                    }
+                                }
+                            } else if ("lang".equals(category)) {
+                                fields = SpectateConfig.Messages.class.getFields();
+                                sendFeedback(ctx.getSource(), 
+                                    //#if MC >= 11900
+                                    Text.literal("§e[Spectate] 语言消息:")
+                                    //#else
+                                    //$$new LiteralText("§e[Spectate] 消息配置:")
+                                    //#endif
+                                    , false);
+                                for (java.lang.reflect.Field field : fields) {
+                                    try {
+                                        Object value = field.get(CONFIG_MANAGER.getConfig().lang);
+                                        String comment = "";
+                                        if (field.getName().equals("point_added")) comment = "添加观察点时的提示消息";
+                                        else if (field.getName().equals("point_removed")) comment = "移除观察点时的提示消息";
+                                        else if (field.getName().equals("cycle_started")) comment = "开始循环时的提示消息";
+                                        else if (field.getName().equals("spectate_stop")) comment = "停止旁观时的提示消息";
+                                        
+                                        String displayText = "  §7lang." + field.getName() + " = \"" + value + "\"";
+                                        if (!comment.isEmpty()) {
+                                            displayText += " §8# " + comment;
+                                        }
+                                        
+                                        sendFeedback(ctx.getSource(), 
+                                            //#if MC >= 11900
+                                            Text.literal(displayText)
+                                            //#else
+                                            //$$new LiteralText(displayText)
+                                            //#endif
+                                            , false);
+                                    } catch (IllegalAccessException e) {
+                                        sendFeedback(ctx.getSource(), 
+                                            //#if MC >= 11900
+                                            Text.literal("  §7lang." + field.getName() + " = [无法访问]")
+                                            //#else
+                                            //$$new LiteralText("  §7lang." + field.getName() + " = [无法访问]")
+                                            //#endif
+                                            , false);
+                                    }
+                                }
+                            } else {
+                                sendError(ctx.getSource(), 
+                                    //#if MC >= 11900
+                                    Text.literal("§c[Spectate] 无效的分类: " + category)
+                                    //#else
+                                    //$$new LiteralText("§c[Spectate] 无效的分类: " + category)
+                                    //#endif
+                                );
+                                return 0;
+                            }
+                            return 1;
+                        })));
+
+        return config;
+    }
+
+    private static String getFieldComment(String fieldName) {
+        switch (fieldName) {
+            case "cycle_interval_seconds": return "循环模式下，每个观察点停留的秒数";
+            case "spectate_distance": return "默认旁观距离，单位：方块";
+            case "spectate_height_offset": return "默认旁观高度偏移，单位：方块";
+            case "spectate_rotation_speed": return "默认旋转速度，数值越大越快";
+            case "floating_strength": return "浮游视角强度，控制摄像机运动的幅度 (0.1-1.0)";
+            case "floating_speed": return "浮游视角速度，控制摄像机运动的速度 (0.1-2.0)";
+            case "floating_orbit_radius": return "浮游视角轨道半径，摄像机围绕目标的轨道半径 (1-20)";
+            case "floating_height_variation": return "浮游视角高度变化，垂直方向的运动幅度 (0.1-2.0)";
+            case "floating_breathing_frequency": return "浮游视角呼吸频率，控制运动节律 (0.1-2.0)";
+            case "floating_damping_factor": return "浮游视角阻尼因子，数值越大运动越平稳 (0.1-1.0)";
+            case "floating_attraction_factor": return "浮游视角吸引力因子，控制回中力量 (0.1-1.0)";
+            case "floating_prediction_factor": return "浮游视角预测因子，控制对目标移动的预测程度 (0.5-5.0)";
+            default: return "";
+        }
     }
 }

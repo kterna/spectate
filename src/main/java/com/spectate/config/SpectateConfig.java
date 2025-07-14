@@ -9,21 +9,44 @@ import java.util.Map;
  */
 public class SpectateConfig {
 
-    public Defaults defaults = new Defaults();
-    public Messages messages = new Messages();
+    public Settings settings = new Settings();
+    public Messages lang = new Messages();
 
-    public static class Defaults {
+    public static class Settings {
+        /** 循环模式下，每个观察点停留的秒数 */
         public int cycle_interval_seconds = 60;
+        
+        /** 默认旁观距离，单位：方块 */
         public double spectate_distance = 20.0;
+        
+        /** 默认旁观高度偏移，单位：方块 */
         public double spectate_height_offset = 5.0;
+        
+        /** 默认旋转速度，数值越大越快 */
         public double spectate_rotation_speed = 1.0;
+        
+        /** 浮游视角强度，控制摄像机运动的幅度 (0.1-1.0) */
         public double floating_strength = 0.5;
+        
+        /** 浮游视角速度，控制摄像机运动的速度 (0.1-2.0) */
         public double floating_speed = 0.3;
+        
+        /** 浮游视角轨道半径，摄像机围绕目标的轨道半径 (1-20) */
         public double floating_orbit_radius = 8.0;
+        
+        /** 浮游视角高度变化，垂直方向的运动幅度 (0.1-2.0) */
         public double floating_height_variation = 0.8;
+        
+        /** 浮游视角呼吸频率，控制运动节律 (0.1-2.0) */
         public double floating_breathing_frequency = 0.5;
+        
+        /** 浮游视角阻尼因子，数值越大运动越平稳 (0.1-1.0) */
         public double floating_damping_factor = 0.95;
+        
+        /** 浮游视角吸引力因子，控制回中力量 (0.1-1.0) */
         public double floating_attraction_factor = 0.3;
+        
+        /** 浮游视角预测因子，控制对目标移动的预测程度 (0.5-5.0) */
         public double floating_prediction_factor = 2.0;
     }
 
