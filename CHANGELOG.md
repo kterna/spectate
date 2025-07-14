@@ -1,5 +1,18 @@
 # 更新日志
 
+## 1.0.5
+- **新增功能**
+  - 新增 `/cspectate config` 命令系统，支持动态配置管理
+  - 支持配置重载：`/cspectate config reload`
+  - 支持配置查看：`/cspectate config get <path>`
+  - 支持配置修改：`/cspectate config set <path> <value>`
+  - 支持配置列表：`/cspectate config list [category]`
+
+- **改进**
+  - 重构配置结构，将 `defaults` 重命名为更直观的 `settings`
+  - 将 `messages` 重命名为 `lang` 以提高语义清晰度
+  - 为所有配置参数添加中文注释，提升可读性
+
 ## 1.0.4
 - **新增功能**
   - 全新电影视角系统，支持4种专业视角模式：慢速环绕、高空俯瞰、螺旋上升、浮游视角
