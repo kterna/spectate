@@ -124,6 +124,10 @@ public class ServerSpectateManager {
         cycleService.startCycle(player);
     }
 
+    public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
+        cycleService.startCycle(player, viewMode, cinematicMode);
+    }
+
     public void nextCyclePoint(ServerPlayerEntity player) {
         cycleService.nextCyclePoint(player, false); // Manual switch
     }
@@ -138,20 +142,24 @@ public class ServerSpectateManager {
             return;
         }
 
+        // 获取当前循环的视角模式
+        ViewMode viewMode = cycleService.getCurrentViewMode(player.getUuid());
+        CinematicMode cinematicMode = cycleService.getCurrentCinematicMode(player.getUuid());
+
         if (pointName.startsWith(PLAYER_PREFIX)) {
             String targetName = pointName.substring(PLAYER_PREFIX.length());
             ServerPlayerEntity target = player.getServer().getPlayerManager().getPlayer(targetName);
             if (target == null) {
                 player.sendMessage(configManager.getFormattedMessage("player_not_found", Map.of("name", targetName)), false);
             } else {
-                sessionManager.spectatePlayer(player, target, true); // Force switch
+                sessionManager.spectatePlayer(player, target, true, viewMode, cinematicMode); // Force switch with view mode
             }
         } else {
             SpectatePointData point = pointManager.getPoint(pointName);
             if (point == null) {
                 player.sendMessage(configManager.getFormattedMessage("point_not_found", Map.of("name", pointName)), false);
             } else {
-                sessionManager.spectatePoint(player, point, true); // Force switch
+                sessionManager.spectatePoint(player, point, true, viewMode, cinematicMode); // Force switch with view mode
             }
         }
     }

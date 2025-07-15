@@ -275,7 +275,27 @@ public class SpectateCommand {
                 .executes(ctx -> {
                     manager.startCycle(ctx.getSource().getPlayer());
                     return 1;
-                }));
+                })
+                .then(CommandManager.literal("cinematic")
+                        .executes(ctx -> {
+                            manager.startCycle(ctx.getSource().getPlayer(), ViewMode.CINEMATIC, CinematicMode.SLOW_ORBIT);
+                            return 1;
+                        })
+                        .then(CommandManager.argument("mode", StringArgumentType.word())
+                                .suggests((c,b)->CommandSource.suggestMatching(new String[]{
+                                    "slow_orbit", "aerial_view", "spiral_up", "floating"
+                                }, b))
+                                .executes(ctx -> {
+                                    String modeStr = StringArgumentType.getString(ctx, "mode");
+                                    CinematicMode cinematicMode = CinematicMode.fromString(modeStr);
+                                    manager.startCycle(ctx.getSource().getPlayer(), ViewMode.CINEMATIC, cinematicMode);
+                                    return 1;
+                                })))
+                .then(CommandManager.literal("follow")
+                        .executes(ctx -> {
+                            manager.startCycle(ctx.getSource().getPlayer(), ViewMode.FOLLOW, null);
+                            return 1;
+                        })));
 
         // cycle next
         cycle.then(CommandManager.literal("next")

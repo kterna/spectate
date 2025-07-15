@@ -43,12 +43,16 @@ public class CycleService {
         private long intervalSeconds;
         private ScheduledFuture<?> future;
         private boolean running;
+        private ViewMode viewMode;
+        private CinematicMode cinematicMode;
 
         PlayerCycleSession(ConfigManager configManager) {
             this.pointList = new ArrayList<>();
             this.intervalSeconds = configManager.getConfig().settings.cycle_interval_seconds;
             this.index = 0;
             this.running = false;
+            this.viewMode = ViewMode.ORBIT; // 默认环绕模式
+            this.cinematicMode = null;
         }
 
         void addPoint(String pointName) {
@@ -88,6 +92,19 @@ public class CycleService {
                 future = null;
             }
             running = false;
+        }
+
+        void setViewMode(ViewMode viewMode, CinematicMode cinematicMode) {
+            this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
+            this.cinematicMode = cinematicMode;
+        }
+
+        ViewMode getViewMode() {
+            return viewMode;
+        }
+
+        CinematicMode getCinematicMode() {
+            return cinematicMode;
         }
     }
 
@@ -140,6 +157,10 @@ public class CycleService {
     }
 
     public void startCycle(ServerPlayerEntity player) {
+        startCycle(player, ViewMode.ORBIT, null);
+    }
+
+    public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
         PlayerCycleSession session = getOrCreateSession(player.getUuid());
         if (session.isEmpty()) {
             player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
@@ -150,10 +171,14 @@ public class CycleService {
             session.stop();
         }
         
+        // 设置视角模式
+        session.setViewMode(viewMode, cinematicMode);
         session.start();
         
-        // Announce start
-        player.sendMessage(configManager.getMessage("cycle_started"), false);
+        // Announce start with mode info
+        String modeMessage = getViewModeMessage(viewMode, cinematicMode);
+        player.sendMessage(configManager.getFormattedMessage("cycle_started_with_mode", 
+            Map.of("mode", modeMessage)), false);
 
         // Switch to the first point immediately
         ServerSpectateManager.getInstance().switchToCyclePoint(player);
@@ -210,5 +235,37 @@ public class CycleService {
             return null;
         }
         return session.pointList.get(session.index);
+    }
+
+    public ViewMode getCurrentViewMode(UUID playerId) {
+        PlayerCycleSession session = cycleSessions.get(playerId);
+        return session != null ? session.getViewMode() : ViewMode.ORBIT;
+    }
+
+    public CinematicMode getCurrentCinematicMode(UUID playerId) {
+        PlayerCycleSession session = cycleSessions.get(playerId);
+        return session != null ? session.getCinematicMode() : null;
+    }
+
+    private String getViewModeMessage(ViewMode viewMode, CinematicMode cinematicMode) {
+        switch (viewMode) {
+            case ORBIT:
+                return "环绕模式";
+            case FOLLOW:
+                return "跟随模式";
+            case CINEMATIC:
+                if (cinematicMode != null) {
+                    switch (cinematicMode) {
+                        case SLOW_ORBIT: return "电影模式 - 慢速环绕";
+                        case AERIAL_VIEW: return "电影模式 - 高空俯瞰";
+                        case SPIRAL_UP: return "电影模式 - 螺旋上升";
+                        case FLOATING: return "电影模式 - 浮游视角";
+                        default: return "电影模式";
+                    }
+                }
+                return "电影模式";
+            default:
+                return "普通模式";
+        }
     }
 }

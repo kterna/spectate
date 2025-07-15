@@ -2,6 +2,7 @@
 .idea/
 .claude/
 CLAUDE.md
+.kiro/
 
 *.iml
 *.ipr

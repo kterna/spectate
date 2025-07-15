@@ -66,6 +66,7 @@ public class SpectateConfig {
         public String cycle_cleared = "已清空循环列表。";
         public String cycle_interval_set = "循环间隔已设为 {seconds} 秒。";
         public String cycle_started = "已开始观察循环。";
+        public String cycle_started_with_mode = "已开始观察循环 ({mode})。";
         public String cycle_stopped = "已停止观察循环。";
         public String cycle_next_point = "已切换至下个观察点: {index}/{total}";
         public String cycle_not_running = "您不在循环模式中，或您的循环列表为空。";

@@ -43,8 +43,10 @@
     *   清空你的循环列表。
 *   **`/cspectate cycle interval <seconds>`**
     *   设置循环切换的间隔时间（秒）。
-*   **`/cspectate cycle start`**
+*   **`/cspectate cycle start [cinematic|follow] [mode]`**
     *   开始循环旁观列表中的点或玩家。
+    *   可选择视角模式：`cinematic` 电影模式或 `follow` 跟随模式
+    *   电影模式支持子模式：`slow_orbit`（慢速环绕）、`aerial_view`（高空俯瞰）、`spiral_up`（螺旋上升）、`floating`（浮游视角）
 *   **`/cspectate cycle next`**
     *   手动切换到循环列表中的下一个点或玩家。
 
