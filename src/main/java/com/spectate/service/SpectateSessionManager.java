@@ -63,7 +63,9 @@ public class SpectateSessionManager {
     }
 
     public static void teleportPlayer(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
-        //#if MC >= 11900
+        //#if MC == 12100
+        //$$player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch);
+        //#elseif MC >= 11900
         player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch, false);
         //#else
         //$$player.teleport(world, x, y, z, yaw, pitch);

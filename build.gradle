@@ -17,6 +17,7 @@ group = project.maven_group
 preprocess {
     strictExtraMappings.set(false)
 
+    def mc12100 = createNode("1.21", 1_21_00, "")
     def mc12104 = createNode("1.21.4", 1_21_04, "")
     def mc12105 = createNode("1.21.5", 1_21_05, "")
     def mc12107 = createNode("1.21.7", 1_21_07, "")
@@ -25,6 +26,7 @@ preprocess {
     // link的起点一定要是主项目，向上向下link均可
     // mapping文件稍后会讲，这里先新建一个
     // 也可以不用mapping，不用的话就把file()改成null
+    mc12105.link(mc12100, file("versions/mapping_12105_12100.txt"))
     mc12105.link(mc12104, file("versions/mapping_12105_12104.txt"))
     mc12105.link(mc12107, file("versions/mapping_12105_12107.txt"))
     mc12105.link(mc11605, file("versions/mapping_12105_11605.txt"))
