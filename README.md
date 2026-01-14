@@ -35,6 +35,12 @@
     *   将一个已保存的观察点添加到你的循环列表中。
 *   **`/cspectate cycle addplayer <playerName>`**
     *   将一个玩家添加到你的循环列表中（用于循环旁观玩家）。
+*   **`/cspectate cycle addplayerall`**
+    *   自动将所有在线玩家添加到循环列表，并自动添加未来加入的玩家。
+*   **`/cspectate cycle addplayerall prefix <前缀>`**
+    *   同上，但排除指定前缀的玩家（如 `bot_` 开头的假人）。
+*   **`/cspectate cycle addplayerall suffix <后缀>`**
+    *   同上，但排除指定后缀的玩家（如 `_fake` 结尾的假人）。
 *   **`/cspectate cycle remove <pointNameOrPlayerName>`**
     *   从循环列表中移除一个点或玩家。
 *   **`/cspectate cycle list`**

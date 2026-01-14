@@ -4,7 +4,12 @@ import com.spectate.SpectateMod;
 import com.spectate.config.ConfigManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+//#if MC >= 11900
 import net.minecraft.text.Text;
+//#else
+//$$import net.minecraft.text.LiteralText;
+//$$import net.minecraft.text.Text;
+//#endif
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -362,8 +367,13 @@ public class CycleService {
             msg.append(")");
         }
 
+        //#if MC >= 11900
         player.sendMessage(Text.literal("§a[Spectate] " + msg.toString()), false);
         player.sendMessage(Text.literal("§7当前循环列表中有 " + session.getPoints().size() + " 个目标"), false);
+        //#else
+        //$$player.sendMessage(new LiteralText("§a[Spectate] " + msg.toString()), false);
+        //$$player.sendMessage(new LiteralText("§7当前循环列表中有 " + session.getPoints().size() + " 个目标"), false);
+        //#endif
     }
 
     /**
@@ -373,7 +383,11 @@ public class CycleService {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null) {
             session.setAutoAddAllPlayers(false, null, null);
+            //#if MC >= 11900
             player.sendMessage(Text.literal("§a[Spectate] 已禁用自动添加所有玩家"), false);
+            //#else
+            //$$player.sendMessage(new LiteralText("§a[Spectate] 已禁用自动添加所有玩家"), false);
+            //#endif
         }
     }
 

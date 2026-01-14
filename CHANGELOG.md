@@ -1,5 +1,21 @@
 # 更新日志
 
+## 1.0.7
+- **新增功能**
+  - 新增 `/cspectate cycle addplayerall` 命令，自动将所有在线玩家添加到循环列表
+  - 支持排除前缀：`/cspectate cycle addplayerall prefix <前缀>` （如排除 `bot_` 开头的假人）
+  - 支持排除后缀：`/cspectate cycle addplayerall suffix <后缀>` （如排除 `_fake` 结尾的假人）
+  - 新玩家加入服务器时自动添加到已启用该功能的循环列表
+  - 玩家离开服务器时自动从所有循环列表中移除
+
+- **改进**
+  - 循环切换时若目标玩家不在线，自动从列表移除并跳转下一个目标
+  - 将玩家标识前缀从 `player:` 改为 `player_`，修复 Minecraft 命令解析问题
+
+## 1.0.6
+- **新增功能**
+  - 支持 Minecraft 1.21 版本
+
 ## 1.0.5
 - **新增功能**
   - 新增 `/cspectate config` 命令系统，支持动态配置管理
