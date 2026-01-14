@@ -226,9 +226,30 @@ public class SpectateCommand {
                         .suggests((c, b) -> CommandSource.suggestMatching(c.getSource().getServer().getPlayerManager().getPlayerNames(), b))
                         .executes(ctx -> {
                             String playerName = StringArgumentType.getString(ctx, "player");
-                            manager.addCyclePoint(ctx.getSource().getPlayer(), "player:" + playerName);
+                            manager.addCyclePoint(ctx.getSource().getPlayer(), "player_" + playerName);
                             return 1;
                         })));
+
+        // cycle addplayerall - 自动添加所有玩家（包括未来加入的）
+        cycle.then(CommandManager.literal("addplayerall")
+                .executes(ctx -> {
+                    manager.enableAutoAddAllPlayers(ctx.getSource().getPlayer(), null, null);
+                    return 1;
+                })
+                .then(CommandManager.literal("prefix")
+                        .then(CommandManager.argument("excludePrefix", StringArgumentType.word())
+                                .executes(ctx -> {
+                                    String prefix = StringArgumentType.getString(ctx, "excludePrefix");
+                                    manager.enableAutoAddAllPlayers(ctx.getSource().getPlayer(), prefix, null);
+                                    return 1;
+                                })))
+                .then(CommandManager.literal("suffix")
+                        .then(CommandManager.argument("excludeSuffix", StringArgumentType.word())
+                                .executes(ctx -> {
+                                    String suffix = StringArgumentType.getString(ctx, "excludeSuffix");
+                                    manager.enableAutoAddAllPlayers(ctx.getSource().getPlayer(), null, suffix);
+                                    return 1;
+                                }))));
 
         // cycle remove <name>
         cycle.then(CommandManager.literal("remove")

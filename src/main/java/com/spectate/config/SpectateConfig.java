@@ -72,6 +72,7 @@ public class SpectateConfig {
         public String cycle_not_running = "您不在循环模式中，或您的循环列表为空。";
 
         public String player_not_found = "未找到玩家: {name}";
+        public String player_not_found_removed = "玩家 {name} 不在线，已从循环列表中移除";
         public String spectate_start_player = "你现在正在观察玩家: {name}";
         public String spectate_start_player_with_mode = "你现在正在观察玩家: {name} ({mode})";
         public String spectate_start_point = "你现在正在观察点: {name}";

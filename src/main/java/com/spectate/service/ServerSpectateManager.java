@@ -22,7 +22,7 @@ public class ServerSpectateManager {
     private static final ServerSpectateManager INSTANCE = new ServerSpectateManager();
     public static ServerSpectateManager getInstance() { return INSTANCE; }
 
-    private static final String PLAYER_PREFIX = "player:";
+    private static final String PLAYER_PREFIX = "player_";
 
     private final SpectateSessionManager sessionManager = SpectateSessionManager.getInstance();
     private final CycleService cycleService = CycleService.getInstance();
@@ -132,6 +132,14 @@ public class ServerSpectateManager {
         cycleService.nextCyclePoint(player, false); // Manual switch
     }
 
+    public void enableAutoAddAllPlayers(ServerPlayerEntity player, String excludePrefix, String excludeSuffix) {
+        cycleService.enableAutoAddAllPlayers(player, excludePrefix, excludeSuffix);
+    }
+
+    public void disableAutoAddAllPlayers(ServerPlayerEntity player) {
+        cycleService.disableAutoAddAllPlayers(player);
+    }
+
     /**
      * 由 CycleService 内部调用，用于切换到当前循环索引指向的点。
      */
@@ -150,16 +158,25 @@ public class ServerSpectateManager {
             String targetName = pointName.substring(PLAYER_PREFIX.length());
             ServerPlayerEntity target = player.getServer().getPlayerManager().getPlayer(targetName);
             if (target == null) {
-                player.sendMessage(configManager.getFormattedMessage("player_not_found", Map.of("name", targetName)), false);
+                // 玩家不在线，自动从列表中移除并跳到下一个
+                cycleService.removeCyclePointSilent(player.getUuid(), pointName);
+                player.sendMessage(configManager.getFormattedMessage("player_not_found_removed",
+                    Map.of("name", targetName)), false);
+                // 如果列表还有其他目标，继续切换
+                if (!cycleService.listCyclePoints(player).isEmpty()) {
+                    switchToCyclePoint(player);
+                } else {
+                    player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
+                }
             } else {
-                sessionManager.spectatePlayer(player, target, true, viewMode, cinematicMode); // Force switch with view mode
+                sessionManager.spectatePlayer(player, target, true, viewMode, cinematicMode);
             }
         } else {
             SpectatePointData point = pointManager.getPoint(pointName);
             if (point == null) {
                 player.sendMessage(configManager.getFormattedMessage("point_not_found", Map.of("name", pointName)), false);
             } else {
-                sessionManager.spectatePoint(player, point, true, viewMode, cinematicMode); // Force switch with view mode
+                sessionManager.spectatePoint(player, point, true, viewMode, cinematicMode);
             }
         }
     }
@@ -173,6 +190,8 @@ public class ServerSpectateManager {
         if (isSpectating(player)) {
             stopSpectating(player);
         }
+        // 通知 CycleService 玩家离开，从其他玩家的循环列表中移除
+        cycleService.onPlayerLeave(player);
     }
 
     public void onPlayerConnect(ServerPlayerEntity player) {
@@ -196,5 +215,7 @@ public class ServerSpectateManager {
                 player.sendMessage(configManager.getMessage("spectate_stop"), false);
             });
         }
+        // 通知 CycleService 新玩家加入，自动添加到启用了 autoAddAllPlayers 的循环列表中
+        cycleService.onPlayerJoin(player);
     }
 }

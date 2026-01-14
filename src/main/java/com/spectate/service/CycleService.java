@@ -46,6 +46,11 @@ public class CycleService {
         private ViewMode viewMode;
         private CinematicMode cinematicMode;
 
+        // 自动添加所有玩家相关
+        private boolean autoAddAllPlayers;
+        private String excludePrefix;
+        private String excludeSuffix;
+
         PlayerCycleSession(ConfigManager configManager) {
             this.pointList = new ArrayList<>();
             this.intervalSeconds = configManager.getConfig().settings.cycle_interval_seconds;
@@ -53,6 +58,9 @@ public class CycleService {
             this.running = false;
             this.viewMode = ViewMode.ORBIT; // 默认环绕模式
             this.cinematicMode = null;
+            this.autoAddAllPlayers = false;
+            this.excludePrefix = null;
+            this.excludeSuffix = null;
         }
 
         void addPoint(String pointName) {
@@ -106,6 +114,34 @@ public class CycleService {
         CinematicMode getCinematicMode() {
             return cinematicMode;
         }
+
+        void setAutoAddAllPlayers(boolean enabled, String excludePrefix, String excludeSuffix) {
+            this.autoAddAllPlayers = enabled;
+            this.excludePrefix = excludePrefix;
+            this.excludeSuffix = excludeSuffix;
+        }
+
+        boolean isAutoAddAllPlayers() {
+            return autoAddAllPlayers;
+        }
+
+        boolean shouldIncludePlayer(String playerName) {
+            if (excludePrefix != null && playerName.startsWith(excludePrefix)) {
+                return false;
+            }
+            if (excludeSuffix != null && playerName.endsWith(excludeSuffix)) {
+                return false;
+            }
+            return true;
+        }
+
+        String getExcludePrefix() {
+            return excludePrefix;
+        }
+
+        String getExcludeSuffix() {
+            return excludeSuffix;
+        }
     }
 
     private PlayerCycleSession getOrCreateSession(UUID playerId) {
@@ -133,6 +169,21 @@ public class CycleService {
             }
         } else {
             player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
+        }
+    }
+
+    /**
+     * 静默移除循环点（不发送消息，不重启循环）。
+     * 用于在循环过程中自动移除不在线的玩家。
+     */
+    public void removeCyclePointSilent(UUID playerId, String pointName) {
+        PlayerCycleSession session = cycleSessions.get(playerId);
+        if (session != null) {
+            session.removePoint(pointName);
+            // 调整索引，防止越界
+            if (session.index >= session.pointList.size() && !session.pointList.isEmpty()) {
+                session.index = 0;
+            }
         }
     }
 
@@ -267,5 +318,101 @@ public class CycleService {
             default:
                 return "普通模式";
         }
+    }
+
+    /* ------------------- Auto Add All Players ------------------- */
+
+    /**
+     * 启用自动添加所有玩家到循环列表的功能。
+     * @param player 执行命令的玩家
+     * @param excludePrefix 排除的前缀（可为null）
+     * @param excludeSuffix 排除的后缀（可为null）
+     */
+    public void enableAutoAddAllPlayers(ServerPlayerEntity player, String excludePrefix, String excludeSuffix) {
+        PlayerCycleSession session = getOrCreateSession(player.getUuid());
+        session.setAutoAddAllPlayers(true, excludePrefix, excludeSuffix);
+
+        // 添加当前在线的所有玩家（排除自己）
+        MinecraftServer server = SpectateMod.getServer();
+        if (server != null) {
+            for (ServerPlayerEntity onlinePlayer : server.getPlayerManager().getPlayerList()) {
+                if (!onlinePlayer.getUuid().equals(player.getUuid())) {
+                    String playerName = onlinePlayer.getName().getString();
+                    if (session.shouldIncludePlayer(playerName)) {
+                        String pointName = "player_" + playerName;
+                        session.addPoint(pointName);
+                    }
+                }
+            }
+        }
+
+        // 构建消息
+        StringBuilder msg = new StringBuilder("已启用自动添加所有玩家");
+        if (excludePrefix != null || excludeSuffix != null) {
+            msg.append(" (排除: ");
+            if (excludePrefix != null) {
+                msg.append("前缀 '").append(excludePrefix).append("'");
+            }
+            if (excludePrefix != null && excludeSuffix != null) {
+                msg.append(", ");
+            }
+            if (excludeSuffix != null) {
+                msg.append("后缀 '").append(excludeSuffix).append("'");
+            }
+            msg.append(")");
+        }
+
+        player.sendMessage(Text.literal("§a[Spectate] " + msg.toString()), false);
+        player.sendMessage(Text.literal("§7当前循环列表中有 " + session.getPoints().size() + " 个目标"), false);
+    }
+
+    /**
+     * 禁用自动添加所有玩家功能。
+     */
+    public void disableAutoAddAllPlayers(ServerPlayerEntity player) {
+        PlayerCycleSession session = cycleSessions.get(player.getUuid());
+        if (session != null) {
+            session.setAutoAddAllPlayers(false, null, null);
+            player.sendMessage(Text.literal("§a[Spectate] 已禁用自动添加所有玩家"), false);
+        }
+    }
+
+    /**
+     * 当新玩家加入服务器时调用，检查是否需要自动添加到某些玩家的循环列表中。
+     */
+    public void onPlayerJoin(ServerPlayerEntity joinedPlayer) {
+        String joinedName = joinedPlayer.getName().getString();
+
+        for (Map.Entry<UUID, PlayerCycleSession> entry : cycleSessions.entrySet()) {
+            PlayerCycleSession session = entry.getValue();
+            if (session.isAutoAddAllPlayers() && !entry.getKey().equals(joinedPlayer.getUuid())) {
+                if (session.shouldIncludePlayer(joinedName)) {
+                    String pointName = "player_" + joinedName;
+                    session.addPoint(pointName);
+                }
+            }
+        }
+    }
+
+    /**
+     * 当玩家离开服务器时调用，从循环列表中移除该玩家。
+     */
+    public void onPlayerLeave(ServerPlayerEntity leftPlayer) {
+        String leftName = leftPlayer.getName().getString();
+        String pointName = "player_" + leftName;
+
+        for (PlayerCycleSession session : cycleSessions.values()) {
+            if (session.pointList.contains(pointName)) {
+                session.removePoint(pointName);
+            }
+        }
+    }
+
+    /**
+     * 检查玩家是否启用了自动添加所有玩家功能。
+     */
+    public boolean isAutoAddAllPlayersEnabled(UUID playerId) {
+        PlayerCycleSession session = cycleSessions.get(playerId);
+        return session != null && session.isAutoAddAllPlayers();
     }
 }
