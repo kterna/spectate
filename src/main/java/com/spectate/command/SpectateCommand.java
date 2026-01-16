@@ -68,8 +68,22 @@ public class SpectateCommand {
     }
 
     private static void registerRoot(CommandDispatcher<ServerCommandSource> dispatcher) {
+        // 注册完整命令 /cspectate
         LiteralArgumentBuilder<ServerCommandSource> root = CommandManager.literal("cspectate");
+        addAllSubcommands(root);
+        dispatcher.register(root);
 
+        // 注册短别名 /cs，同时支持缩写子命令
+        LiteralArgumentBuilder<ServerCommandSource> alias = CommandManager.literal("cs");
+        addAllSubcommands(alias);
+        addAbbreviatedSubcommands(alias);
+        dispatcher.register(alias);
+    }
+
+    /**
+     * 添加所有完整子命令到指定的根命令
+     */
+    private static void addAllSubcommands(LiteralArgumentBuilder<ServerCommandSource> root) {
         root.then(buildPointsCommand());
         root.then(buildPointCommand());
         root.then(buildStopCommand());
@@ -77,8 +91,372 @@ public class SpectateCommand {
         root.then(buildPlayerCommand());
         root.then(buildCoordsCommand());
         root.then(buildConfigCommand());
+    }
 
-        dispatcher.register(root);
+    /**
+     * 添加缩写子命令到 /cs 别名
+     * 缩写设计：
+     *   /cs p <player>  = player
+     *   /cs pt <name>   = point
+     *   /cs pts         = points
+     *   /cs co <x y z>  = coords
+     *   /cs cy          = cycle
+     *   /cs s           = stop
+     */
+    private static void addAbbreviatedSubcommands(LiteralArgumentBuilder<ServerCommandSource> root) {
+        // p -> player
+        root.then(buildPlayerCommandWithLiteral("p"));
+        // pt -> point
+        root.then(buildPointCommandWithLiteral("pt"));
+        // pts -> points
+        root.then(buildPointsCommandWithLiteral("pts"));
+        // co -> coords
+        root.then(buildCoordsCommandWithLiteral("co"));
+        // cy -> cycle
+        root.then(buildCycleCommandWithLiteral("cy"));
+        // s -> stop
+        root.then(buildStopCommandWithLiteral("s"));
+    }
+
+    /* ---------------- Abbreviated command builders ---------------- */
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildPlayerCommandWithLiteral(String literal) {
+        return CommandManager.literal(literal)
+                .then(CommandManager.argument("target", StringArgumentType.word())
+                        .suggests((c,b)->CommandSource.suggestMatching(c.getSource().getServer().getPlayerManager().getPlayerNames(), b))
+                        .executes(ctx->{
+                            String targetName = StringArgumentType.getString(ctx, "target");
+                            ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                            if(target==null){
+                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                return 0;
+                            }
+                            ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target);
+                            return 1;
+                        })
+                        .then(CommandManager.literal("follow")
+                                .executes(ctx->{
+                                    String targetName = StringArgumentType.getString(ctx, "target");
+                                    ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                                    if(target==null){
+                                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                        return 0;
+                                    }
+                                    ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target,
+                                        ViewMode.FOLLOW, null);
+                                    return 1;
+                                }))
+                        .then(CommandManager.literal("cinematic")
+                                .executes(ctx->{
+                                    String targetName = StringArgumentType.getString(ctx, "target");
+                                    ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                                    if(target==null){
+                                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                        return 0;
+                                    }
+                                    ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target,
+                                        ViewMode.CINEMATIC, CinematicMode.SLOW_ORBIT);
+                                    return 1;
+                                })
+                                .then(CommandManager.argument("mode", StringArgumentType.word())
+                                        .suggests((c,b)->CommandSource.suggestMatching(new String[]{
+                                            "slow_orbit", "aerial_view", "spiral_up", "floating"
+                                        }, b))
+                                        .executes(ctx->{
+                                            String targetName = StringArgumentType.getString(ctx, "target");
+                                            String modeStr = StringArgumentType.getString(ctx, "mode");
+                                            ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                                            if(target==null){
+                                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                                                return 0;
+                                            }
+                                            CinematicMode cinematicMode = CinematicMode.fromString(modeStr);
+                                            ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target,
+                                                ViewMode.CINEMATIC, cinematicMode);
+                                            return 1;
+                                        }))));
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildPointCommandWithLiteral(String literal) {
+        return CommandManager.literal(literal)
+                .then(CommandManager.argument("name", StringArgumentType.word())
+                        .suggests(POINT_SUGGESTIONS)
+                        .executes(ctx -> {
+                            String name = StringArgumentType.getString(ctx, "name");
+                            SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
+                            if(point==null){
+                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
+                                return 0;
+                            }
+                            ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point);
+                            return 1;
+                        })
+                        .then(CommandManager.literal("cinematic")
+                                .executes(ctx -> {
+                                    String name = StringArgumentType.getString(ctx, "name");
+                                    SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
+                                    if(point==null){
+                                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
+                                        return 0;
+                                    }
+                                    ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point,
+                                        ViewMode.CINEMATIC, CinematicMode.SLOW_ORBIT);
+                                    return 1;
+                                })
+                                .then(CommandManager.argument("mode", StringArgumentType.word())
+                                        .suggests((c,b)->CommandSource.suggestMatching(new String[]{
+                                            "slow_orbit", "aerial_view", "spiral_up", "floating"
+                                        }, b))
+                                        .executes(ctx -> {
+                                            String name = StringArgumentType.getString(ctx, "name");
+                                            String modeStr = StringArgumentType.getString(ctx, "mode");
+                                            SpectatePointData point = SpectatePointManager.getInstance().getPoint(name);
+                                            if(point==null){
+                                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
+                                                return 0;
+                                            }
+                                            CinematicMode cinematicMode = CinematicMode.fromString(modeStr);
+                                            ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point,
+                                                ViewMode.CINEMATIC, cinematicMode);
+                                            return 1;
+                                        }))));
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildPointsCommandWithLiteral(String literal) {
+        LiteralArgumentBuilder<ServerCommandSource> points = CommandManager.literal(literal);
+
+        // pts add <name> <pos> [desc]
+        RequiredArgumentBuilder<ServerCommandSource, String> nameArg = CommandManager.argument("name", StringArgumentType.word());
+        RequiredArgumentBuilder<ServerCommandSource, ?> posArg = CommandManager.argument("pos", Vec3ArgumentType.vec3())
+                .executes(ctx -> {
+                    String name = StringArgumentType.getString(ctx, "name");
+                    Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
+                    SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+                    //#if MC >= 11900
+                    String dimension = ctx.getSource().getPlayer().getWorld().getRegistryKey().getValue().toString();
+                    //#else
+                    //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
+                    //#endif
+                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, name);
+                    SpectatePointManager.getInstance().addPoint(name, data);
+                    sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
+                    return 1;
+                })
+                .then(CommandManager.argument("description", StringArgumentType.greedyString())
+                        .executes(ctx -> {
+                            String name = StringArgumentType.getString(ctx, "name");
+                            Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
+                            String desc = StringArgumentType.getString(ctx, "description");
+                            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+                            //#if MC >= 11900
+                            String dimension = ctx.getSource().getPlayer().getWorld().getRegistryKey().getValue().toString();
+                            //#else
+                            //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
+                            //#endif
+                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, desc);
+                            SpectatePointManager.getInstance().addPoint(name, data);
+                            sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
+                            return 1;
+                        }));
+
+        points.then(CommandManager.literal("add").then(nameArg.then(posArg)));
+
+        // pts remove <name>
+        points.then(CommandManager.literal("remove")
+                .then(CommandManager.argument("name", StringArgumentType.word())
+                        .suggests(POINT_SUGGESTIONS)
+                        .executes(ctx -> {
+                            String name = StringArgumentType.getString(ctx, "name");
+                            if (SpectatePointManager.getInstance().removePoint(name) != null) {
+                                sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_removed", Map.of("name", name)), false);
+                                return 1;
+                            } else {
+                                sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
+                                return 0;
+                            }
+                        })));
+
+        // pts list
+        points.then(CommandManager.literal("list")
+                .executes(ctx -> {
+                    Collection<String> pointNames = SpectatePointManager.getInstance().listPointNames();
+                    if (pointNames.isEmpty()) {
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("point_list_empty"), false);
+                    } else {
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("point_list_header"), false);
+                        pointNames.forEach(name ->
+                            sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_item", Map.of("name", name)), false));
+                    }
+                    return 1;
+                }));
+
+        return points;
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildCoordsCommandWithLiteral(String literal) {
+        RequiredArgumentBuilder<ServerCommandSource, ?> posArg = CommandManager.argument("pos", Vec3ArgumentType.vec3());
+
+        posArg.executes(ctx -> {
+            Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
+            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed);
+            return 1;
+        });
+
+        RequiredArgumentBuilder<ServerCommandSource, ?> distArg = CommandManager.argument("distance", DoubleArgumentType.doubleArg(1));
+        distArg.executes(ctx -> {
+            Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
+            double dist = DoubleArgumentType.getDouble(ctx, "distance");
+            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, settings.spectate_height_offset, settings.spectate_rotation_speed);
+            return 1;
+        });
+
+        RequiredArgumentBuilder<ServerCommandSource, ?> heightArg = CommandManager.argument("heightOffset", DoubleArgumentType.doubleArg());
+        heightArg.executes(ctx -> {
+            Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
+            double dist = DoubleArgumentType.getDouble(ctx, "distance");
+            double h = DoubleArgumentType.getDouble(ctx, "heightOffset");
+            SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, settings.spectate_rotation_speed);
+            return 1;
+        });
+
+        RequiredArgumentBuilder<ServerCommandSource, ?> rotArg = CommandManager.argument("rotationSpeed", DoubleArgumentType.doubleArg(0));
+        rotArg.executes(ctx -> {
+            Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
+            double dist = DoubleArgumentType.getDouble(ctx, "distance");
+            double h = DoubleArgumentType.getDouble(ctx, "heightOffset");
+            double rot = DoubleArgumentType.getDouble(ctx, "rotationSpeed");
+            ServerSpectateManager.getInstance().spectateCoords(ctx.getSource().getPlayer(), pos.x, pos.y, pos.z, dist, h, rot);
+            return 1;
+        });
+
+        heightArg.then(rotArg);
+        distArg.then(heightArg);
+        posArg.then(distArg);
+
+        return CommandManager.literal(literal).then(posArg);
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildCycleCommandWithLiteral(String literal) {
+        LiteralArgumentBuilder<ServerCommandSource> cycle = CommandManager.literal(literal);
+        ServerSpectateManager manager = ServerSpectateManager.getInstance();
+
+        cycle.then(CommandManager.literal("add")
+                .then(CommandManager.argument("name", StringArgumentType.word())
+                        .suggests(POINT_SUGGESTIONS)
+                        .executes(ctx -> {
+                            manager.addCyclePoint(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "name"));
+                            return 1;
+                        })));
+
+        cycle.then(CommandManager.literal("addplayer")
+                .then(CommandManager.argument("player", StringArgumentType.word())
+                        .suggests((c, b) -> CommandSource.suggestMatching(c.getSource().getServer().getPlayerManager().getPlayerNames(), b))
+                        .executes(ctx -> {
+                            String playerName = StringArgumentType.getString(ctx, "player");
+                            manager.addCyclePoint(ctx.getSource().getPlayer(), "player_" + playerName);
+                            return 1;
+                        })));
+
+        cycle.then(CommandManager.literal("addplayerall")
+                .executes(ctx -> {
+                    manager.enableAutoAddAllPlayers(ctx.getSource().getPlayer(), null, null);
+                    return 1;
+                })
+                .then(CommandManager.literal("prefix")
+                        .then(CommandManager.argument("excludePrefix", StringArgumentType.word())
+                                .executes(ctx -> {
+                                    String prefix = StringArgumentType.getString(ctx, "excludePrefix");
+                                    manager.enableAutoAddAllPlayers(ctx.getSource().getPlayer(), prefix, null);
+                                    return 1;
+                                })))
+                .then(CommandManager.literal("suffix")
+                        .then(CommandManager.argument("excludeSuffix", StringArgumentType.word())
+                                .executes(ctx -> {
+                                    String suffix = StringArgumentType.getString(ctx, "excludeSuffix");
+                                    manager.enableAutoAddAllPlayers(ctx.getSource().getPlayer(), null, suffix);
+                                    return 1;
+                                }))));
+
+        cycle.then(CommandManager.literal("remove")
+                .then(CommandManager.argument("name", StringArgumentType.word())
+                        .suggests(CYCLE_SUGGESTIONS)
+                        .executes(ctx -> {
+                            manager.removeCyclePoint(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "name"));
+                            return 1;
+                        })));
+
+        cycle.then(CommandManager.literal("list")
+                .executes(ctx -> {
+                    ServerPlayerEntity player = ctx.getSource().getPlayer();
+                    List<String> points = manager.listCyclePoints(player);
+                    if (points.isEmpty()) {
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("cycle_list_empty"), false);
+                    } else {
+                        sendFeedback(ctx.getSource(), CONFIG_MANAGER.getMessage("cycle_list_header"), false);
+                        for (int i = 0; i < points.size(); i++) {
+                            sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("cycle_list_item", Map.of("index", String.valueOf(i + 1), "name", points.get(i))), false);
+                        }
+                    }
+                    return 1;
+                }));
+
+        cycle.then(CommandManager.literal("clear")
+                .executes(ctx -> {
+                    manager.clearCyclePoints(ctx.getSource().getPlayer());
+                    return 1;
+                }));
+
+        cycle.then(CommandManager.literal("interval")
+                .then(CommandManager.argument("seconds", DoubleArgumentType.doubleArg(1))
+                        .executes(ctx -> {
+                            manager.setCycleInterval(ctx.getSource().getPlayer(), (long) DoubleArgumentType.getDouble(ctx, "seconds"));
+                            return 1;
+                        })));
+
+        cycle.then(CommandManager.literal("start")
+                .executes(ctx -> {
+                    manager.startCycle(ctx.getSource().getPlayer());
+                    return 1;
+                })
+                .then(CommandManager.literal("cinematic")
+                        .executes(ctx -> {
+                            manager.startCycle(ctx.getSource().getPlayer(), ViewMode.CINEMATIC, CinematicMode.SLOW_ORBIT);
+                            return 1;
+                        })
+                        .then(CommandManager.argument("mode", StringArgumentType.word())
+                                .suggests((c,b)->CommandSource.suggestMatching(new String[]{
+                                    "slow_orbit", "aerial_view", "spiral_up", "floating"
+                                }, b))
+                                .executes(ctx -> {
+                                    String modeStr = StringArgumentType.getString(ctx, "mode");
+                                    CinematicMode cinematicMode = CinematicMode.fromString(modeStr);
+                                    manager.startCycle(ctx.getSource().getPlayer(), ViewMode.CINEMATIC, cinematicMode);
+                                    return 1;
+                                })))
+                .then(CommandManager.literal("follow")
+                        .executes(ctx -> {
+                            manager.startCycle(ctx.getSource().getPlayer(), ViewMode.FOLLOW, null);
+                            return 1;
+                        })));
+
+        cycle.then(CommandManager.literal("next")
+                .executes(ctx -> {
+                    manager.nextCyclePoint(ctx.getSource().getPlayer());
+                    return 1;
+                }));
+
+        return cycle;
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildStopCommandWithLiteral(String literal) {
+        return CommandManager.literal(literal)
+                .executes(ctx->{
+                    ServerSpectateManager.getInstance().stopSpectating(ctx.getSource().getPlayer());
+                    return 1;
+                });
     }
 
     /* ---------------- Helper builders ---------------- */
