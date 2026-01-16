@@ -218,4 +218,27 @@ public class ServerSpectateManager {
         // 通知 CycleService 新玩家加入，自动添加到启用了 autoAddAllPlayers 的循环列表中
         cycleService.onPlayerJoin(player);
     }
+
+    /* ------------------- Who Command Support ------------------- */
+
+    /**
+     * 获取所有正在旁观的玩家UUID列表
+     */
+    public java.util.Set<UUID> getSpectatingPlayerIds() {
+        return sessionManager.getSpectatingPlayerIds();
+    }
+
+    /**
+     * 获取指定玩家的旁观目标信息
+     */
+    public String getSpectateTargetInfo(UUID playerId) {
+        return sessionManager.getSpectateTargetInfo(playerId);
+    }
+
+    /**
+     * 获取指定玩家的旁观视角模式信息
+     */
+    public String getSpectateViewModeInfo(UUID playerId) {
+        return sessionManager.getSpectateViewModeInfo(playerId);
+    }
 }

@@ -791,4 +791,47 @@ public class SpectateSessionManager {
     SpectateSession getActiveSession(UUID playerId) {
         return activeSpectations.get(playerId);
     }
+
+    /**
+     * 获取所有正在旁观的玩家UUID列表
+     */
+    public java.util.Set<UUID> getSpectatingPlayerIds() {
+        return Collections.unmodifiableSet(playerOriginalStates.keySet());
+    }
+
+    /**
+     * 获取指定玩家的旁观目标信息
+     * @return 目标描述字符串，如果不在旁观则返回null
+     */
+    public String getSpectateTargetInfo(UUID playerId) {
+        SpectateSession session = activeSpectations.get(playerId);
+        if (session == null) {
+            return null;
+        }
+
+        if (session.isObservingPoint()) {
+            SpectatePointData point = session.getSpectatePointData();
+            if (point != null) {
+                return "观察点: " + point.getDescription();
+            }
+            return "观察点: 未知";
+        } else {
+            ServerPlayerEntity target = session.getTargetPlayer();
+            if (target != null && !isPlayerRemoved(target)) {
+                return "玩家: " + target.getName().getString();
+            }
+            return "玩家: 已离线";
+        }
+    }
+
+    /**
+     * 获取指定玩家的旁观视角模式信息
+     */
+    public String getSpectateViewModeInfo(UUID playerId) {
+        SpectateSession session = activeSpectations.get(playerId);
+        if (session == null) {
+            return null;
+        }
+        return getViewModeMessage(session.getViewMode(), session.getCinematicMode());
+    }
 }

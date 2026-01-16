@@ -81,5 +81,9 @@ public class SpectateConfig {
         public String spectate_stop = "你已停止观察。";
         public String spectate_already_running = "已在观察中。请先使用 /cspectate stop 停止。";
         public String must_be_player = "该命令只能由玩家执行。";
+
+        public String who_header = "§e当前旁观状态:";
+        public String who_item = "§7 - §f{viewer} §7-> §a{target} §8({mode})";
+        public String who_empty = "§7当前没有玩家在旁观。";
     }
 }

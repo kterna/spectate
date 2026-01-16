@@ -91,6 +91,7 @@ public class SpectateCommand {
         root.then(buildPlayerCommand());
         root.then(buildCoordsCommand());
         root.then(buildConfigCommand());
+        root.then(buildWhoCommand());
     }
 
     /**
@@ -102,6 +103,7 @@ public class SpectateCommand {
      *   /cs co <x y z>  = coords
      *   /cs cy          = cycle
      *   /cs s           = stop
+     *   /cs w           = who
      */
     private static void addAbbreviatedSubcommands(LiteralArgumentBuilder<ServerCommandSource> root) {
         // p -> player
@@ -116,6 +118,8 @@ public class SpectateCommand {
         root.then(buildCycleCommandWithLiteral("cy"));
         // s -> stop
         root.then(buildStopCommandWithLiteral("s"));
+        // w -> who
+        root.then(buildWhoCommandWithLiteral("w"));
     }
 
     /* ---------------- Abbreviated command builders ---------------- */
@@ -459,6 +463,40 @@ public class SpectateCommand {
                 });
     }
 
+    private static LiteralArgumentBuilder<ServerCommandSource> buildWhoCommandWithLiteral(String literal) {
+        return CommandManager.literal(literal)
+                .executes(ctx -> executeWhoCommand(ctx.getSource()));
+    }
+
+    private static int executeWhoCommand(ServerCommandSource source) {
+        ServerSpectateManager manager = ServerSpectateManager.getInstance();
+        java.util.Set<java.util.UUID> spectatingIds = manager.getSpectatingPlayerIds();
+
+        if (spectatingIds.isEmpty()) {
+            sendFeedback(source, CONFIG_MANAGER.getMessage("who_empty"), false);
+            return 1;
+        }
+
+        sendFeedback(source, CONFIG_MANAGER.getMessage("who_header"), false);
+
+        for (java.util.UUID playerId : spectatingIds) {
+            ServerPlayerEntity viewer = source.getServer().getPlayerManager().getPlayer(playerId);
+            if (viewer != null) {
+                String viewerName = viewer.getName().getString();
+                String targetInfo = manager.getSpectateTargetInfo(playerId);
+                String modeInfo = manager.getSpectateViewModeInfo(playerId);
+
+                if (targetInfo == null) targetInfo = "未知";
+                if (modeInfo == null) modeInfo = "未知";
+
+                sendFeedback(source, CONFIG_MANAGER.getFormattedMessage("who_item",
+                    Map.of("viewer", viewerName, "target", targetInfo, "mode", modeInfo)), false);
+            }
+        }
+
+        return 1;
+    }
+
     /* ---------------- Helper builders ---------------- */
 
     private static LiteralArgumentBuilder<ServerCommandSource> buildPointsCommand() {
@@ -583,6 +621,11 @@ public class SpectateCommand {
                     ServerSpectateManager.getInstance().stopSpectating(ctx.getSource().getPlayer());
                     return 1;
                 });
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildWhoCommand(){
+        return CommandManager.literal("who")
+                .executes(ctx -> executeWhoCommand(ctx.getSource()));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> buildCycleCommand() {
