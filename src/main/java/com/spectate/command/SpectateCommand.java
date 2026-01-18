@@ -227,7 +227,7 @@ public class SpectateCommand {
                     //#else
                     //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
                     //#endif
-                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, name);
+                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, name, "default");
                     SpectatePointManager.getInstance().addPoint(name, data);
                     sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                     return 1;
@@ -243,7 +243,16 @@ public class SpectateCommand {
                             //#else
                             //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
                             //#endif
-                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, desc);
+                            
+                            String group = "default";
+                            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("group:(\\S+)").matcher(desc);
+                            if (matcher.find()) {
+                                group = matcher.group(1);
+                                desc = desc.replace(matcher.group(0), "").trim();
+                            }
+                            if (desc.isEmpty()) desc = name;
+
+                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, desc, group);
                             SpectatePointManager.getInstance().addPoint(name, data);
                             sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                             return 1;
@@ -266,7 +275,7 @@ public class SpectateCommand {
                             }
                         })));
 
-        // pts list
+        // pts list [group]
         points.then(CommandManager.literal("list")
                 .executes(ctx -> {
                     Collection<String> pointNames = SpectatePointManager.getInstance().listPointNames();
@@ -278,7 +287,21 @@ public class SpectateCommand {
                             sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_item", Map.of("name", name)), false));
                     }
                     return 1;
-                }));
+                })
+                .then(CommandManager.argument("group", StringArgumentType.word())
+                        .suggests((c, b) -> CommandSource.suggestMatching(SpectatePointManager.getInstance().listGroups(), b))
+                        .executes(ctx -> {
+                             String group = StringArgumentType.getString(ctx, "group");
+                             Collection<String> pointNames = SpectatePointManager.getInstance().listPointNamesByGroup(group);
+                             if (pointNames.isEmpty()) {
+                                 sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_group_empty", Map.of("group", group)), false);
+                             } else {
+                                 sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_group_header", Map.of("group", group)), false);
+                                 pointNames.forEach(name ->
+                                     sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_item", Map.of("name", name)), false));
+                             }
+                             return 1;
+                        })));
 
         return points;
     }
@@ -338,6 +361,14 @@ public class SpectateCommand {
                         .suggests(POINT_SUGGESTIONS)
                         .executes(ctx -> {
                             manager.addCyclePoint(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "name"));
+                            return 1;
+                        })));
+
+        cycle.then(CommandManager.literal("addgroup")
+                .then(CommandManager.argument("group", StringArgumentType.word())
+                        .suggests((c, b) -> CommandSource.suggestMatching(SpectatePointManager.getInstance().listGroups(), b))
+                        .executes(ctx -> {
+                            manager.addCycleGroup(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "group"));
                             return 1;
                         })));
 
@@ -504,7 +535,7 @@ public class SpectateCommand {
                     //#else
                     //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
                     //#endif
-                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, name);
+                    SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, name, "default");
                     SpectatePointManager.getInstance().addPoint(name, data);
                     sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                     return 1;
@@ -520,7 +551,16 @@ public class SpectateCommand {
                             //#else
                             //$$String dimension = ctx.getSource().getPlayer().getServerWorld().getRegistryKey().getValue().toString();
                             //#endif
-                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, desc);
+                            
+                            String group = "default";
+                            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("group:(\\S+)").matcher(desc);
+                            if (matcher.find()) {
+                                group = matcher.group(1);
+                                desc = desc.replace(matcher.group(0), "").trim();
+                            }
+                            if (desc.isEmpty()) desc = name;
+
+                            SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)pos.x, (int)pos.y, (int)pos.z), settings.spectate_distance, settings.spectate_height_offset, settings.spectate_rotation_speed, desc, group);
                             SpectatePointManager.getInstance().addPoint(name, data);
                             sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_added", Map.of("name", name)), false);
                             return 1;
@@ -543,7 +583,7 @@ public class SpectateCommand {
                             }
                         })));
 
-        // points list (列出)
+        // points list [group]
         points.then(CommandManager.literal("list")
                 .executes(ctx -> {
                     Collection<String> pointNames = SpectatePointManager.getInstance().listPointNames();
@@ -555,7 +595,21 @@ public class SpectateCommand {
                             sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_item", Map.of("name", name)), false));
                     }
                     return 1;
-                }));
+                })
+                .then(CommandManager.argument("group", StringArgumentType.word())
+                        .suggests((c, b) -> CommandSource.suggestMatching(SpectatePointManager.getInstance().listGroups(), b))
+                        .executes(ctx -> {
+                             String group = StringArgumentType.getString(ctx, "group");
+                             Collection<String> pointNames = SpectatePointManager.getInstance().listPointNamesByGroup(group);
+                             if (pointNames.isEmpty()) {
+                                 sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_group_empty", Map.of("group", group)), false);
+                             } else {
+                                 sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_group_header", Map.of("group", group)), false);
+                                 pointNames.forEach(name ->
+                                     sendFeedback(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_list_item", Map.of("name", name)), false));
+                             }
+                             return 1;
+                        })));
 
         return points;
     }
@@ -621,6 +675,15 @@ public class SpectateCommand {
                         .suggests(POINT_SUGGESTIONS)
                         .executes(ctx -> {
                             manager.addCyclePoint(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "name"));
+                            return 1;
+                        })));
+
+        // cycle addgroup <分组>
+        cycle.then(CommandManager.literal("addgroup")
+                .then(CommandManager.argument("group", StringArgumentType.word())
+                        .suggests((c, b) -> CommandSource.suggestMatching(SpectatePointManager.getInstance().listGroups(), b))
+                        .executes(ctx -> {
+                            manager.addCycleGroup(ctx.getSource().getPlayer(), StringArgumentType.getString(ctx, "group"));
                             return 1;
                         })));
 

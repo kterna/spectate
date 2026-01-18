@@ -171,6 +171,39 @@ public class CycleService {
     }
 
     /**
+     * 将指定分组中的所有观察点添加到玩家的循环列表中。
+     *
+     * @param player 目标玩家。
+     * @param group 分组名称。
+     */
+    public void addCycleGroup(ServerPlayerEntity player, String group) {
+        java.util.Collection<String> groupPoints = SpectatePointManager.getInstance().listPointNamesByGroup(group);
+        if (groupPoints.isEmpty()) {
+            //#if MC >= 11900
+            player.sendMessage(Text.literal("§c[Spectate] 分组 " + group + " 中没有任何观察点。"), false);
+            //#else
+            //$$player.sendMessage(new LiteralText("§c[Spectate] 分组 " + group + " 中没有任何观察点。"), false);
+            //#endif
+            return;
+        }
+
+        PlayerCycleSession session = getOrCreateSession(player.getUuid());
+        int count = 0;
+        for (String pointName : groupPoints) {
+            if (!session.pointList.contains(pointName)) {
+                session.addPoint(pointName);
+                count++;
+            }
+        }
+        
+        //#if MC >= 11900
+        player.sendMessage(Text.literal("§a[Spectate] 已将分组 " + group + " 中的 " + count + " 个观察点添加到循环列表。"), false);
+        //#else
+        //$$player.sendMessage(new LiteralText("§a[Spectate] 已将分组 " + group + " 中的 " + count + " 个观察点添加到循环列表。"), false);
+        //#endif
+    }
+
+    /**
      * 从玩家的循环列表中移除一个观察点。
      * 如果循环正在运行，会暂停循环，移除点后重新计算状态。
      *

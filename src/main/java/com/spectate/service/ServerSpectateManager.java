@@ -151,6 +151,16 @@ public class ServerSpectateManager {
     }
 
     /**
+     * 向玩家的循环列表中添加指定分组的所有观察点。
+     *
+     * @param player 目标玩家。
+     * @param group 分组名称。
+     */
+    public void addCycleGroup(ServerPlayerEntity player, String group) {
+        cycleService.addCycleGroup(player, group);
+    }
+
+    /**
      * 从玩家的循环列表中移除一个观察点。
      *
      * @param player 目标玩家。

@@ -24,14 +24,20 @@ public class SpectatePointData {
     /** 每秒旋转角速度，单位：度/秒，0 表示不旋转 */
     private final double rotationSpeedDegPerSec;
     private final String description;
+    private final String group;
 
-    public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, double rotationSpeedDegPerSec, String description) {
+    public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, double rotationSpeedDegPerSec, String description, String group) {
         this.dimension = dimension;
         this.position = position;
         this.distance = distance;
         this.heightOffset = heightOffset;
         this.rotationSpeedDegPerSec = rotationSpeedDegPerSec;
         this.description = description;
+        this.group = group != null ? group : "default";
+    }
+
+    public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, double rotationSpeedDegPerSec, String description) {
+        this(dimension, position, distance, heightOffset, rotationSpeedDegPerSec, description, "default");
     }
 
     /**
@@ -44,7 +50,7 @@ public class SpectatePointData {
      * @param description 描述
      */
     public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, String description) {
-        this(dimension, position, distance, heightOffset, 1, description);
+        this(dimension, position, distance, heightOffset, 1, description, "default");
     }
 
     /**
@@ -101,6 +107,15 @@ public class SpectatePointData {
         return description;
     }
 
+    /**
+     * 获取分组名称。
+     *
+     * @return 分组名称。
+     */
+    public String getGroup() {
+        return group != null ? group : "default";
+    }
+
     @Override
     public String toString() {
         return "SpectatePointData{" +
@@ -110,6 +125,7 @@ public class SpectatePointData {
                 ", heightOffset=" + heightOffset +
                 ", rotationSpeed=" + rotationSpeedDegPerSec +
                 ", description='" + description + '\'' +
+                ", group='" + group + '\'' +
                 '}';
     }
 
@@ -123,11 +139,12 @@ public class SpectatePointData {
                 Double.compare(that.rotationSpeedDegPerSec, rotationSpeedDegPerSec) == 0 &&
                 Objects.equals(dimension, that.dimension) &&
                 Objects.equals(position, that.position) &&
-                Objects.equals(description, that.description);
+                Objects.equals(description, that.description) &&
+                Objects.equals(getGroup(), that.getGroup());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(dimension, position, distance, heightOffset, rotationSpeedDegPerSec, description);
+        return Objects.hash(dimension, position, distance, heightOffset, rotationSpeedDegPerSec, description, getGroup());
     }
 } 

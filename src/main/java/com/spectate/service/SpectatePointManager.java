@@ -58,4 +58,37 @@ public class SpectatePointManager {
     public Collection<String> listPointNames() {
         return stateSaver.listPointNames();
     }
+
+    /**
+     * 列出指定分组的所有观察点名称。
+     *
+     * @param group 分组名称。
+     * @return 匹配的观察点名称集合。
+     */
+    public java.util.Collection<String> listPointNamesByGroup(String group) {
+        java.util.List<String> result = new java.util.ArrayList<>();
+        for (String name : listPointNames()) {
+            SpectatePointData point = getPoint(name);
+            if (point != null && group.equals(point.getGroup())) {
+                result.add(name);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 列出所有现有的分组名称。
+     *
+     * @return 分组名称集合。
+     */
+    public java.util.Collection<String> listGroups() {
+        java.util.Set<String> groups = new java.util.HashSet<>();
+        for (String name : listPointNames()) {
+            SpectatePointData point = getPoint(name);
+            if (point != null) {
+                groups.add(point.getGroup());
+            }
+        }
+        return groups;
+    }
 }

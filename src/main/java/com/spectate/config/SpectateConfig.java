@@ -55,8 +55,10 @@ public class SpectateConfig {
         public String point_removed = "已移除观察点: {name}";
         public String point_not_found = "未找到观察点: {name}";
         public String point_list_header = "观察点列表:";
+        public String point_list_group_header = "分组 {group} 的观察点列表:";
         public String point_list_item = " - {name}";
         public String point_list_empty = "没有已保存的观察点。";
+        public String point_list_group_empty = "分组 {group} 下没有观察点。";
 
         public String cycle_point_added = "已添加至循环: {name}";
         public String cycle_point_removed = "已从循环中移除: {name}";
