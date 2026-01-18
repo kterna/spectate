@@ -25,6 +25,7 @@ public class SpectateStateSaver {
     private static final String POINTS_FILE_NAME = "spectate_points.json";
     private static final String CYCLE_FILE_NAME = "cycle_lists.json";
     private static final String PLAYER_STATES_FILE_NAME = "player_spectate_states.json";
+    private static final String PREFERENCES_FILE_NAME = "player_preferences.json";
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final SpectateStateSaver INSTANCE = new SpectateStateSaver();
@@ -39,10 +40,13 @@ public class SpectateStateSaver {
     private final Map<String, List<String>> cycleCache = new ConcurrentHashMap<>();
     // 玩家观察状态缓存：玩家UUID字符串 -> 状态字符串
     private final Map<String, String> playerStateCache = new ConcurrentHashMap<>();
+    // 玩家偏好缓存：玩家UUID字符串 -> 偏好对象
+    private final Map<String, PlayerPreference> preferenceCache = new ConcurrentHashMap<>();
 
     private final Path pointsFile;
     private final Path cycleFile;
     private final Path playerStatesFile;
+    private final Path preferencesFile;
 
     private SpectateStateSaver() {
         Path configDir = FabricLoader.getInstance().getConfigDir();
@@ -58,6 +62,7 @@ public class SpectateStateSaver {
         this.pointsFile = spectateDir.resolve(POINTS_FILE_NAME);
         this.cycleFile = spectateDir.resolve(CYCLE_FILE_NAME);
         this.playerStatesFile = spectateDir.resolve(PLAYER_STATES_FILE_NAME);
+        this.preferencesFile = spectateDir.resolve(PREFERENCES_FILE_NAME);
     }
 
     /**
@@ -79,6 +84,11 @@ public class SpectateStateSaver {
             loadPlayerStates();
         } catch (IOException e) {
             SpectateMod.LOGGER.error("[Spectate] 从文件加载玩家状态失败: {}", playerStatesFile, e);
+        }
+        try {
+            loadPreferences();
+        } catch (IOException e) {
+            SpectateMod.LOGGER.error("[Spectate] 从文件加载玩家偏好失败: {}", preferencesFile, e);
         }
     }
 
@@ -207,6 +217,29 @@ public class SpectateStateSaver {
         return playerStateCache.get(playerUUID.toString());
     }
 
+    /* ------------------- 玩家偏好 ------------------- */
+
+    /**
+     * 获取玩家的偏好设置。如果不存在则返回默认值。
+     *
+     * @param playerUUID 玩家的 UUID。
+     * @return 玩家的偏好对象。
+     */
+    public PlayerPreference getPlayerPreference(UUID playerUUID) {
+        return preferenceCache.computeIfAbsent(playerUUID.toString(), k -> new PlayerPreference());
+    }
+
+    /**
+     * 更新并保存玩家的偏好设置。
+     *
+     * @param playerUUID 玩家的 UUID。
+     * @param preference 新的偏好对象。
+     */
+    public synchronized void savePlayerPreference(UUID playerUUID, PlayerPreference preference) {
+        preferenceCache.put(playerUUID.toString(), preference);
+        savePreferences();
+    }
+
     /* ------------------- 内部加载 / 保存 ------------------- */
 
     private void loadPoints() throws IOException {
@@ -282,6 +315,30 @@ public class SpectateStateSaver {
             }
         } catch (IOException e) {
             SpectateMod.LOGGER.error("[Spectate] Failed to save player states.", e);
+        }
+    }
+
+    private void loadPreferences() throws IOException {
+        if (Files.notExists(preferencesFile)) {
+            return;
+        }
+        try (FileReader reader = new FileReader(preferencesFile.toFile())) {
+            Type type = new TypeToken<Map<String, PlayerPreference>>() {}.getType();
+            Map<String, PlayerPreference> loadedPreferences = GSON.fromJson(reader, type);
+            if (loadedPreferences != null) {
+                preferenceCache.putAll(loadedPreferences);
+            }
+        }
+    }
+
+    private void savePreferences() {
+        try {
+            Files.createDirectories(preferencesFile.getParent());
+            try (FileWriter writer = new FileWriter(preferencesFile.toFile())) {
+                GSON.toJson(preferenceCache, writer);
+            }
+        } catch (IOException e) {
+            SpectateMod.LOGGER.error("[Spectate] Failed to save player preferences.", e);
         }
     }
 

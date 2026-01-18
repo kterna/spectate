@@ -2,6 +2,8 @@ package com.spectate.service;
 
 import com.spectate.SpectateMod;
 import com.spectate.config.ConfigManager;
+import com.spectate.data.PlayerPreference;
+import com.spectate.data.SpectateStateSaver;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 //#if MC >= 11900
@@ -247,23 +249,35 @@ public class CycleService {
     }
 
     /**
-     * 开始玩家的循环观察。使用默认视角模式。
+     * 开始玩家的循环观察。使用默认视角模式或上次的偏好。
      * 如果列表为空，会发送提示消息。
      *
      * @param player 目标玩家。
      */
     public void startCycle(ServerPlayerEntity player) {
-        startCycle(player, ViewMode.ORBIT, null);
+        // 加载偏好
+        PlayerPreference pref = SpectateStateSaver.getInstance().getPlayerPreference(player.getUuid());
+        ViewMode viewMode = pref.lastCycleViewMode != null ? pref.lastCycleViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastCycleCinematicMode;
+
+        startCycle(player, viewMode, cinematicMode);
     }
 
     /**
      * 开始玩家的循环观察，并指定视角模式。
+     * 同时保存该偏好。
      *
      * @param player 目标玩家。
      * @param viewMode 视角模式。
      * @param cinematicMode 电影模式子选项。
      */
     public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
+        // 保存偏好
+        PlayerPreference pref = SpectateStateSaver.getInstance().getPlayerPreference(player.getUuid());
+        pref.lastCycleViewMode = viewMode;
+        pref.lastCycleCinematicMode = cinematicMode;
+        SpectateStateSaver.getInstance().savePlayerPreference(player.getUuid(), pref);
+
         PlayerCycleSession session = getOrCreateSession(player.getUuid());
         if (session.isEmpty()) {
             player.sendMessage(configManager.getMessage("cycle_list_empty"), false);

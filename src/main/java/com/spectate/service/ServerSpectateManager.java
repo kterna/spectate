@@ -1,6 +1,7 @@
 package com.spectate.service;
 
 import com.spectate.config.ConfigManager;
+import com.spectate.data.PlayerPreference;
 import com.spectate.data.SpectatePointData;
 import com.spectate.data.SpectateStateSaver;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -42,34 +43,59 @@ public class ServerSpectateManager {
 
     /**
      * 观察一个已定义的点。
+     * 优先使用玩家上次的偏好设置。
      */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point) {
-        sessionManager.spectatePoint(player, point, false);
+        PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
+        ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
+        
+        sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
     }
 
     /**
      * 使用指定视角模式观察一个已定义的点。
+     * 同时保存该偏好。
      */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, ViewMode viewMode, CinematicMode cinematicMode) {
+        // 保存偏好
+        PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
+        pref.lastSpectateViewMode = viewMode;
+        pref.lastSpectateCinematicMode = cinematicMode;
+        stateSaver.savePlayerPreference(player.getUuid(), pref);
+
         sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
     }
 
     /**
      * 观察另一个玩家。
+     * 优先使用玩家上次的偏好设置。
      */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target) {
-        sessionManager.spectatePlayer(viewer, target, false);
+        PlayerPreference pref = stateSaver.getPlayerPreference(viewer.getUuid());
+        ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
+
+        sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
     }
 
     /**
      * 使用指定视角模式观察另一个玩家。
+     * 同时保存该偏好。
      */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
+        // 保存偏好
+        PlayerPreference pref = stateSaver.getPlayerPreference(viewer.getUuid());
+        pref.lastSpectateViewMode = viewMode;
+        pref.lastSpectateCinematicMode = cinematicMode;
+        stateSaver.savePlayerPreference(viewer.getUuid(), pref);
+        
         sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
     }
 
     /**
      * 观察任意坐标。
+     * 使用默认的或上次的旁观模式。
      */
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height, double rotation) {
         String pointName = String.format("coords(%.0f,%.0f,%.0f)", x, y, z);
@@ -79,7 +105,13 @@ public class ServerSpectateManager {
         //$$String dimension = player.getServerWorld().getRegistryKey().getValue().toString();
         //#endif
         SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)x, (int)y, (int)z), distance, height, rotation, pointName);
-        sessionManager.spectatePoint(player, data, false);
+        
+        // 同样使用普通旁观的偏好
+        PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
+        ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
+
+        sessionManager.spectatePoint(player, data, false, viewMode, cinematicMode);
     }
 
     /**
