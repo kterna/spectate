@@ -53,7 +53,7 @@ public class SpectateSessionManager {
         //#endif
     }
 
-    // Make this public static so other services can use it for cross-version compatibility
+    // 将其设为 public static，以便其他服务可以使用它来实现跨版本兼容性
     public static void changeGameMode(ServerPlayerEntity player, GameMode gameMode) {
         //#if MC >= 11900
         player.changeGameMode(gameMode);
@@ -62,6 +62,17 @@ public class SpectateSessionManager {
         //#endif
     }
 
+    /**
+     * 将玩家跨维度传送到指定位置。
+     *
+     * @param player 目标玩家
+     * @param world 目标世界
+     * @param x X坐标
+     * @param y Y坐标
+     * @param z Z坐标
+     * @param yaw 偏航角
+     * @param pitch 俯仰角
+     */
     public static void teleportPlayer(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
         //#if MC == 12100
         //$$player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch);
@@ -202,10 +213,22 @@ public class SpectateSessionManager {
         }
     }
 
+    /**
+     * 将当前玩家的原始状态保存到内存中。
+     * 只会在没有保存过的情况下保存，避免多次覆盖。
+     *
+     * @param player 要保存状态的玩家。
+     */
     private void savePlayerOriginalState(ServerPlayerEntity player) {
         playerOriginalStates.putIfAbsent(player.getUuid(), new PlayerOriginalState(player));
     }
 
+    /**
+     * 取消指定玩家当前的旁观任务（如果有）。
+     * 这会停止位置更新的调度任务。
+     *
+     * @param playerId 玩家的 UUID。
+     */
     private void cancelCurrentSpectation(UUID playerId) {
         SpectateSession session = activeSpectations.remove(playerId);
         if (session != null) {
@@ -213,13 +236,30 @@ public class SpectateSessionManager {
         }
     }
 
+    /**
+     * 开始让玩家旁观指定的观察点。
+     * 使用默认的 ORBIT 视角模式。
+     *
+     * @param player 执行旁观的玩家。
+     * @param point 目标观察点数据。
+     * @param force 是否强制开始（忽略“已在旁观中”的检查）。
+     */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force) {
         spectatePoint(player, point, force, ViewMode.ORBIT, null);
     }
 
+    /**
+     * 开始让玩家旁观指定的观察点，并指定视角模式。
+     *
+     * @param player 执行旁观的玩家。
+     * @param point 目标观察点数据。
+     * @param force 是否强制开始。
+     * @param viewMode 视角模式（如 ORBIT, CINEMATIC）。
+     * @param cinematicMode 如果是 CINEMATIC 模式，指定具体的电影效果子模式。
+     */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force, ViewMode viewMode, CinematicMode cinematicMode) {
         if (point == null) {
-            // This case should ideally not happen if called from commands, more of a safeguard.
+            // 如果从命令调用，这种情况理想情况下不应发生，更多的是一种保护措施。
             player.sendMessage(configManager.getMessage("point_not_found"), false);
             return;
         }
@@ -687,10 +727,27 @@ public class SpectateSessionManager {
         //#endif
     }
 
+    /**
+     * 开始让玩家旁观另一个玩家。
+     * 使用默认的 ORBIT 视角模式。
+     *
+     * @param viewer 旁观者。
+     * @param target 被观察的目标玩家。
+     * @param force 是否强制开始。
+     */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force) {
         spectatePlayer(viewer, target, force, ViewMode.ORBIT, null);
     }
 
+    /**
+     * 开始让玩家旁观另一个玩家，并指定视角模式。
+     *
+     * @param viewer 旁观者。
+     * @param target 被观察的目标玩家。
+     * @param force 是否强制开始。
+     * @param viewMode 视角模式。
+     * @param cinematicMode 电影模式子选项。
+     */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force, ViewMode viewMode, CinematicMode cinematicMode) {
         if (!force && isSpectating(viewer.getUuid())) {
             viewer.sendMessage(configManager.getMessage("spectate_already_running"), false);
@@ -764,13 +821,19 @@ public class SpectateSessionManager {
         }
     }
 
+    /**
+     * 停止指定玩家的旁观会话，并将其恢复到旁观前的状态（位置、游戏模式等）。
+     *
+     * @param player 要停止旁观的玩家。
+     * @return 如果成功停止了一个活动会话，则返回 true；如果玩家并未在旁观，则返回 false。
+     */
     public boolean stopSpectating(ServerPlayerEntity player) {
         UUID playerId = player.getUuid();
         cancelCurrentSpectation(playerId);
 
         PlayerOriginalState originalState = playerOriginalStates.remove(playerId);
         if (originalState == null) {
-            // Don't send a message if there was nothing to stop.
+            // 如果没有什么可以停止的，不要发送消息。
             return false;
         }
 
@@ -784,10 +847,22 @@ public class SpectateSessionManager {
         return true;
     }
 
+    /**
+     * 检查玩家是否正在进行旁观。
+     *
+     * @param playerId 玩家的 UUID。
+     * @return 如果正在旁观，返回 true。
+     */
     public boolean isSpectating(UUID playerId) {
         return playerOriginalStates.containsKey(playerId);
     }
 
+    /**
+     * 获取指定玩家当前的活动旁观会话。
+     *
+     * @param playerId 玩家的 UUID。
+     * @return 活动会话对象，如果不存在则返回 null。
+     */
     SpectateSession getActiveSession(UUID playerId) {
         return activeSpectations.get(playerId);
     }

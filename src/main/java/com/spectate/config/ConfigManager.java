@@ -37,14 +37,26 @@ public class ConfigManager {
         loadConfig();
     }
 
+    /**
+     * 获取全局 ConfigManager 实例。
+     * @return 单例实例。
+     */
     public static ConfigManager getInstance() {
         return INSTANCE;
     }
 
+    /**
+     * 获取当前的配置对象。
+     * @return 包含所有配置数据的 {@link SpectateConfig} 对象。
+     */
     public SpectateConfig getConfig() {
         return config;
     }
 
+    /**
+     * 从磁盘重新加载配置文件。
+     * 如果文件不存在或损坏，将尝试创建默认配置或修复。
+     */
     public void reloadConfig() {
         loadConfig();
     }
@@ -52,7 +64,7 @@ public class ConfigManager {
     private void loadConfig() {
         try {
             if (Files.notExists(configFile)) {
-                SpectateMod.LOGGER.info("[Spectate] Config file not found, creating a default one.");
+                SpectateMod.LOGGER.info("[Spectate] 未找到配置文件，正在创建默认配置。");
                 createDefaultConfig();
             }
             try (FileReader reader = new FileReader(configFile.toFile())) {
@@ -60,12 +72,12 @@ public class ConfigManager {
             }
 
             if (config == null) {
-                SpectateMod.LOGGER.warn("[Spectate] Config file is empty or corrupted, creating a new one.");
+                SpectateMod.LOGGER.warn("[Spectate] 配置文件为空或损坏，正在创建一个新的。");
                 createDefaultConfig();
             }
         } catch (IOException e) {
-            SpectateMod.LOGGER.error("[Spectate] Failed to load or create config file.", e);
-            // Use an in-memory default if all else fails
+            SpectateMod.LOGGER.error("[Spectate] 加载或创建配置文件失败。", e);
+            // 如果所有方法都失败，使用内存中的默认配置
             config = new SpectateConfig();
         }
     }
@@ -99,20 +111,33 @@ public class ConfigManager {
         //#endif
     }
     
+    /**
+     * 获取指定消息键的消息文本。
+     * 这是一个简便方法，相当于调用 {@code getFormattedMessage(messageKey, null)}。
+     *
+     * @param messageKey 消息的键，来自 {@link SpectateConfig.Messages}。
+     * @return 对应的 Text 对象。
+     */
     public Text getMessage(String messageKey) {
         return getFormattedMessage(messageKey, null);
     }
 
     private String getMessageTemplate(String key) {
         try {
-            // Use reflection to get the message from the config object
+            // 使用反射从配置对象中获取消息
             return (String) SpectateConfig.Messages.class.getField(key).get(config.lang);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            SpectateMod.LOGGER.warn("[Spectate] Missing message key in config: " + key);
+            SpectateMod.LOGGER.warn("[Spectate] 配置中缺少消息键: " + key);
             return "Missing message: " + key;
         }
     }
 
+    /**
+     * 使用反射获取配置值。支持 "category.key" 格式的路径。
+     *
+     * @param path 配置路径，例如 "settings.cycle_interval_seconds"。
+     * @return 配置值对象，如果路径无效则返回 null。
+     */
     public Object getConfigValue(String path) {
         try {
             String[] parts = path.split("\\.");
@@ -135,6 +160,14 @@ public class ConfigManager {
         }
     }
 
+    /**
+     * 使用反射设置配置值，并保存到文件。
+     * 支持自动类型转换（String -> int/double/boolean）。
+     *
+     * @param path 配置路径，例如 "settings.cycle_interval_seconds"。
+     * @param value 新的配置值（字符串形式）。
+     * @return 如果设置成功并保存，则返回 true；否则返回 false。
+     */
     public boolean setConfigValue(String path, String value) {
         try {
             String[] parts = path.split("\\.");

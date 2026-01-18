@@ -44,7 +44,7 @@ public class SpectateCommand {
     private static final PointSuggestionProvider POINT_SUGGESTIONS = new PointSuggestionProvider();
     private static final CyclePointSuggestionProvider CYCLE_SUGGESTIONS = new CyclePointSuggestionProvider();
 
-    // Helper method for cross-version sendFeedback
+    // 跨版本 sendFeedback 的辅助方法
     private static void sendFeedback(ServerCommandSource source, Text text, boolean broadcastToOps) {
         //#if MC >= 11900
         source.sendFeedback(() -> text, broadcastToOps);
@@ -57,6 +57,10 @@ public class SpectateCommand {
         source.sendError(text);
     }
 
+    /**
+     * 注册 /cspectate 命令及其别名。
+     * 应在模组初始化时调用。
+     */
     public static void register() {
 //#if MC >= 11900
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
@@ -122,7 +126,7 @@ public class SpectateCommand {
         root.then(buildWhoCommandWithLiteral("w"));
     }
 
-    /* ---------------- Abbreviated command builders ---------------- */
+    /* ---------------- 缩写命令构建器 ---------------- */
 
     private static LiteralArgumentBuilder<ServerCommandSource> buildPlayerCommandWithLiteral(String literal) {
         return CommandManager.literal(literal)
@@ -468,6 +472,13 @@ public class SpectateCommand {
                 .executes(ctx -> executeWhoCommand(ctx.getSource()));
     }
 
+    /**
+     * 执行 /cspectate who 命令逻辑。
+     * 显示当前所有正在旁观的玩家及其目标。
+     *
+     * @param source 命令源。
+     * @return 命令执行状态码（通常为 1）。
+     */
     private static int executeWhoCommand(ServerCommandSource source) {
         ServerSpectateManager manager = ServerSpectateManager.getInstance();
         java.util.Set<java.util.UUID> spectatingIds = manager.getSpectatingPlayerIds();
@@ -497,12 +508,12 @@ public class SpectateCommand {
         return 1;
     }
 
-    /* ---------------- Helper builders ---------------- */
+    /* ---------------- 辅助构建器 ---------------- */
 
     private static LiteralArgumentBuilder<ServerCommandSource> buildPointsCommand() {
         LiteralArgumentBuilder<ServerCommandSource> points = CommandManager.literal("points");
 
-        // points add <name> <pos> [desc]
+        // points add <名称> <坐标> [描述]
         RequiredArgumentBuilder<ServerCommandSource, String> nameArg = CommandManager.argument("name", StringArgumentType.word());
         RequiredArgumentBuilder<ServerCommandSource, ?> posArg = CommandManager.argument("pos", Vec3ArgumentType.vec3())
                 .executes(ctx -> {
@@ -538,7 +549,7 @@ public class SpectateCommand {
         
         points.then(CommandManager.literal("add").then(nameArg.then(posArg)));
 
-        // points remove <name>
+        // points remove <名称>
         points.then(CommandManager.literal("remove")
                 .then(CommandManager.argument("name", StringArgumentType.word())
                         .suggests(POINT_SUGGESTIONS)
@@ -553,7 +564,7 @@ public class SpectateCommand {
                             }
                         })));
 
-        // points list
+        // points list (列出)
         points.then(CommandManager.literal("list")
                 .executes(ctx -> {
                     Collection<String> pointNames = SpectatePointManager.getInstance().listPointNames();
@@ -632,7 +643,7 @@ public class SpectateCommand {
         LiteralArgumentBuilder<ServerCommandSource> cycle = CommandManager.literal("cycle");
         ServerSpectateManager manager = ServerSpectateManager.getInstance();
 
-        // cycle add <name>
+        // cycle add <名称>
         cycle.then(CommandManager.literal("add")
                 .then(CommandManager.argument("name", StringArgumentType.word())
                         .suggests(POINT_SUGGESTIONS)
@@ -641,7 +652,7 @@ public class SpectateCommand {
                             return 1;
                         })));
 
-        // cycle addplayer <name>
+        // cycle addplayer <玩家名>
         cycle.then(CommandManager.literal("addplayer")
                 .then(CommandManager.argument("player", StringArgumentType.word())
                         .suggests((c, b) -> CommandSource.suggestMatching(c.getSource().getServer().getPlayerManager().getPlayerNames(), b))
@@ -672,7 +683,7 @@ public class SpectateCommand {
                                     return 1;
                                 }))));
 
-        // cycle remove <name>
+        // cycle remove <名称>
         cycle.then(CommandManager.literal("remove")
                 .then(CommandManager.argument("name", StringArgumentType.word())
                         .suggests(CYCLE_SUGGESTIONS)
@@ -681,7 +692,7 @@ public class SpectateCommand {
                             return 1;
                         })));
 
-        // cycle list
+        // cycle list (列出)
         cycle.then(CommandManager.literal("list")
                 .executes(ctx -> {
                     ServerPlayerEntity player = ctx.getSource().getPlayer();
@@ -697,14 +708,14 @@ public class SpectateCommand {
                     return 1;
                 }));
 
-        // cycle clear
+        // cycle clear (清空)
         cycle.then(CommandManager.literal("clear")
                 .executes(ctx -> {
                     manager.clearCyclePoints(ctx.getSource().getPlayer());
                     return 1;
                 }));
 
-        // cycle interval <seconds>
+        // cycle interval <秒数>
         cycle.then(CommandManager.literal("interval")
                 .then(CommandManager.argument("seconds", DoubleArgumentType.doubleArg(1))
                         .executes(ctx -> {
@@ -712,7 +723,7 @@ public class SpectateCommand {
                             return 1;
                         })));
 
-        // cycle start
+        // cycle start (开始)
         cycle.then(CommandManager.literal("start")
                 .executes(ctx -> {
                     manager.startCycle(ctx.getSource().getPlayer());
@@ -739,7 +750,7 @@ public class SpectateCommand {
                             return 1;
                         })));
 
-        // cycle next
+        // cycle next (下一个)
         cycle.then(CommandManager.literal("next")
                 .executes(ctx -> {
                     manager.nextCyclePoint(ctx.getSource().getPlayer());
@@ -809,7 +820,7 @@ public class SpectateCommand {
     private static LiteralArgumentBuilder<ServerCommandSource> buildCoordsCommand() {
         RequiredArgumentBuilder<ServerCommandSource, ?> posArg = CommandManager.argument("pos", Vec3ArgumentType.vec3());
 
-        // Base command: /cspectate coords <pos>
+        // 基础命令: /cspectate coords <pos>
         posArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
             SpectateConfig.Settings settings = CONFIG_MANAGER.getConfig().settings;
@@ -817,7 +828,7 @@ public class SpectateCommand {
             return 1;
         });
 
-        // Optional distance: /cspectate coords <pos> <distance>
+        // 可选距离: /cspectate coords <pos> <distance>
         RequiredArgumentBuilder<ServerCommandSource, ?> distArg = CommandManager.argument("distance", DoubleArgumentType.doubleArg(1));
         distArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
@@ -827,7 +838,7 @@ public class SpectateCommand {
             return 1;
         });
 
-        // Optional height: /cspectate coords <pos> <distance> <heightOffset>
+        // 可选高度: /cspectate coords <pos> <distance> <heightOffset>
         RequiredArgumentBuilder<ServerCommandSource, ?> heightArg = CommandManager.argument("heightOffset", DoubleArgumentType.doubleArg());
         heightArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
@@ -838,7 +849,7 @@ public class SpectateCommand {
             return 1;
         });
 
-        // Optional rotation: /cspectate coords <pos> <distance> <heightOffset> <rotationSpeed>
+        // 可选旋转: /cspectate coords <pos> <distance> <heightOffset> <rotationSpeed>
         RequiredArgumentBuilder<ServerCommandSource, ?> rotArg = CommandManager.argument("rotationSpeed", DoubleArgumentType.doubleArg(0));
         rotArg.executes(ctx -> {
             Vec3d pos = Vec3ArgumentType.getVec3(ctx, "pos");
@@ -849,7 +860,7 @@ public class SpectateCommand {
             return 1;
         });
 
-        // Chain the arguments
+        // 链式参数
         heightArg.then(rotArg);
         distArg.then(heightArg);
         posArg.then(distArg);
@@ -860,7 +871,7 @@ public class SpectateCommand {
     private static LiteralArgumentBuilder<ServerCommandSource> buildConfigCommand() {
         LiteralArgumentBuilder<ServerCommandSource> config = CommandManager.literal("config");
 
-        // config reload
+        // config reload (重载)
         config.then(CommandManager.literal("reload")
                 .requires(source -> source.hasPermissionLevel(2)) // 需要OP权限
                 .executes(ctx -> {
@@ -875,21 +886,21 @@ public class SpectateCommand {
                     return 1;
                 }));
 
-        // config get <path>
+        // config get <路径>
         config.then(CommandManager.literal("get")
                 .requires(source -> source.hasPermissionLevel(2))
                 .then(CommandManager.argument("path", StringArgumentType.string())
                         .suggests((c, b) -> {
-                            // 提供settings和lang的字段建议
+                            // 提供 settings 和 lang 的字段建议
                             java.util.List<String> suggestions = new java.util.ArrayList<>();
                             
-                            // 添加settings字段
+                            // 添加 settings 字段
                             java.lang.reflect.Field[] settingsFields = SpectateConfig.Settings.class.getFields();
                             for (java.lang.reflect.Field field : settingsFields) {
                                 suggestions.add("settings." + field.getName());
                             }
                             
-                            // 添加lang字段
+                            // 添加 lang 字段
                             java.lang.reflect.Field[] langFields = SpectateConfig.Messages.class.getFields();
                             for (java.lang.reflect.Field field : langFields) {
                                 suggestions.add("lang." + field.getName());
@@ -920,7 +931,7 @@ public class SpectateCommand {
                             return 1;
                         })));
 
-        // config set <path> <value>
+        // config set <路径> <值>
         config.then(CommandManager.literal("set")
                 .requires(source -> source.hasPermissionLevel(2))
                 .then(CommandManager.argument("path", StringArgumentType.string())
@@ -968,7 +979,7 @@ public class SpectateCommand {
                                     }
                                 }))));
 
-        // config list [category]
+        // config list [分类]
         config.then(CommandManager.literal("list")
                 .requires(source -> source.hasPermissionLevel(2))
                 .executes(ctx -> {
@@ -1132,6 +1143,13 @@ public class SpectateCommand {
         return config;
     }
 
+    /**
+     * 获取配置字段的中文注释说明。
+     * 用于 /cspectate config list 命令的输出。
+     *
+     * @param fieldName 字段名称。
+     * @return 注释字符串，如果没有对应注释则返回空字符串。
+     */
     private static String getFieldComment(String fieldName) {
         switch (fieldName) {
             case "cycle_interval_seconds": return "循环模式下，每个观察点停留的秒数";

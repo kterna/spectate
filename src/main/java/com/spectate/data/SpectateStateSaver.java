@@ -46,12 +46,12 @@ public class SpectateStateSaver {
 
     private SpectateStateSaver() {
         Path configDir = FabricLoader.getInstance().getConfigDir();
-        Path spectateDir = configDir.resolve("spectate"); // Create a dedicated subdirectory
+        Path spectateDir = configDir.resolve("spectate"); // 创建专用子目录
         try {
             Files.createDirectories(spectateDir);
         } catch (IOException e) {
-            // Use the logger and throw a runtime exception for critical init failures
-            String errorMessage = "[Spectate] Failed to create config directory: " + spectateDir;
+            // 对于严重的初始化失败，记录日志并抛出运行时异常
+            String errorMessage = "[Spectate] 创建配置目录失败: " + spectateDir;
             SpectateMod.LOGGER.error(errorMessage, e);
             throw new RuntimeException(errorMessage, e);
         }
@@ -61,29 +61,37 @@ public class SpectateStateSaver {
     }
 
     /**
-     * Initializes the state saver by loading all data from disk.
-     * This should be called once when the server starts.
+     * 初始化状态保存器，从磁盘加载所有数据。
+     * 应在服务器启动时调用一次。
      */
     public void initialize() {
         try {
             loadPoints();
         } catch (IOException e) {
-            SpectateMod.LOGGER.error("[Spectate] Failed to load spectate points from file: {}", pointsFile, e);
+            SpectateMod.LOGGER.error("[Spectate] 从文件加载观察点失败: {}", pointsFile, e);
         }
         try {
             loadCycles();
         } catch (IOException e) {
-            SpectateMod.LOGGER.error("[Spectate] Failed to load cycle lists from file: {}", cycleFile, e);
+            SpectateMod.LOGGER.error("[Spectate] 从文件加载循环列表失败: {}", cycleFile, e);
         }
         try {
             loadPlayerStates();
         } catch (IOException e) {
-            SpectateMod.LOGGER.error("[Spectate] Failed to load player states from file: {}", playerStatesFile, e);
+            SpectateMod.LOGGER.error("[Spectate] 从文件加载玩家状态失败: {}", playerStatesFile, e);
         }
     }
 
     /* ------------------- 观察点 ------------------- */
 
+    /**
+     * 添加一个新的观察点到缓存中，并可选择是否立即保存到磁盘。
+     *
+     * @param name 观察点的唯一名称。
+     * @param data 包含观察点详细信息的 {@link SpectatePointData} 对象。
+     * @param save 如果为 true，则在添加后立即保存所有点到磁盘。
+     * @throws NullPointerException 如果 name 或 data 为 null。
+     */
     public synchronized void addSpectatePoint(String name, SpectatePointData data, boolean save) {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(data, "data");
@@ -93,10 +101,22 @@ public class SpectateStateSaver {
         }
     }
 
+    /**
+     * 添加一个新的观察点到缓存中，并立即保存到磁盘。
+     *
+     * @param name 观察点的唯一名称。
+     * @param data 包含观察点详细信息的 {@link SpectatePointData} 对象。
+     */
     public synchronized void addSpectatePoint(String name, SpectatePointData data) {
         addSpectatePoint(name, data, true);
     }
 
+    /**
+     * 从缓存中移除指定的观察点，并在成功移除后更新磁盘文件。
+     *
+     * @param name 要移除的观察点名称。
+     * @return 如果存在并被移除，返回被移除的 {@link SpectatePointData}；否则返回 null。
+     */
     public synchronized SpectatePointData removeSpectatePoint(String name) {
         SpectatePointData removed = pointCache.remove(name);
         if (removed != null) {
@@ -105,15 +125,34 @@ public class SpectateStateSaver {
         return removed;
     }
 
+    /**
+     * 获取指定名称的观察点数据。
+     *
+     * @param name 观察点名称。
+     * @return 对应的 {@link SpectatePointData} 对象，如果不存在则返回 null。
+     */
     public SpectatePointData getSpectatePoint(String name) {
         return pointCache.get(name);
     }
 
+    /**
+     * 获取所有已注册观察点的名称列表。
+     *
+     * @return 包含所有点名称的不可变集合。
+     */
     public Collection<String> listPointNames() {
         return Collections.unmodifiableSet(pointCache.keySet());
     }
 
     /* ------------------- 循环列表 ------------------- */
+    
+    /**
+     * 设置玩家的个人循环观察列表，并立即保存到磁盘。
+     *
+     * @param playerUUID 玩家的 UUID。
+     * @param list 观察点名称的列表。
+     * @throws NullPointerException 如果 playerUUID 或 list 为 null。
+     */
     public synchronized void setPlayerCycleList(UUID playerUUID, List<String> list) {
         Objects.requireNonNull(playerUUID);
         Objects.requireNonNull(list);
@@ -121,12 +160,24 @@ public class SpectateStateSaver {
         saveCycles();
     }
 
+    /**
+     * 获取玩家的个人循环观察列表。
+     *
+     * @param playerUUID 玩家的 UUID。
+     * @return 观察点名称的列表，如果玩家没有设置过，则返回空列表。
+     */
     public List<String> getPlayerCycleList(UUID playerUUID) {
         return cycleCache.getOrDefault(playerUUID.toString(), Collections.emptyList());
     }
 
     /* ------------------- 玩家状态 ------------------- */
 
+    /**
+     * 保存玩家在开始旁观前的状态，以便后续恢复。
+     *
+     * @param playerUUID 玩家的 UUID。
+     * @param state 序列化后的状态字符串。
+     */
     public synchronized void savePlayerState(UUID playerUUID, String state) {
         Objects.requireNonNull(playerUUID, "playerUUID");
         Objects.requireNonNull(state, "state");
@@ -134,6 +185,11 @@ public class SpectateStateSaver {
         savePlayerStates();
     }
 
+    /**
+     * 移除并返回玩家保存的状态。通常在玩家停止旁观时调用。
+     *
+     * @param playerUUID 玩家的 UUID。
+     */
     public synchronized void removePlayerState(UUID playerUUID) {
         Objects.requireNonNull(playerUUID, "playerUUID");
         if (playerStateCache.remove(playerUUID.toString()) != null) {
@@ -141,6 +197,12 @@ public class SpectateStateSaver {
         }
     }
 
+    /**
+     * 获取玩家保存的状态。
+     *
+     * @param playerUUID 玩家的 UUID。
+     * @return 状态字符串，如果不存在则返回 null。
+     */
     public String getPlayerState(UUID playerUUID) {
         return playerStateCache.get(playerUUID.toString());
     }

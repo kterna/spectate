@@ -14,10 +14,21 @@ public enum ViewMode {
         this.name = name;
     }
 
+    /**
+     * 获取模式的内部名称。
+     *
+     * @return 模式名称字符串。
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * 根据名称查找对应的 ViewMode。
+     *
+     * @param name 模式名称（不区分大小写）。
+     * @return 对应的 ViewMode，如果未找到则返回默认的 ORBIT。
+     */
     public static ViewMode fromString(String name) {
         for (ViewMode mode : values()) {
             if (mode.name.equalsIgnoreCase(name)) {

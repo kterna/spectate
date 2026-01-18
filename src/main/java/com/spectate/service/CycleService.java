@@ -38,6 +38,10 @@ public class CycleService {
     private CycleService() {}
 
 
+    /**
+     * 获取用于调度循环任务的线程池。
+     * @return 调度执行器服务
+     */
     public ScheduledExecutorService getScheduler() {
         return scheduler;
     }
@@ -91,7 +95,7 @@ public class CycleService {
         }
 
         void setInterval(long seconds) {
-            this.intervalSeconds = Math.max(1, seconds); // Minimum 1 second
+            this.intervalSeconds = Math.max(1, seconds); // 最小间隔 1 秒
         }
 
         void start() {
@@ -153,24 +157,37 @@ public class CycleService {
         return cycleSessions.computeIfAbsent(playerId, k -> new PlayerCycleSession(configManager));
     }
 
+    /**
+     * 向玩家的循环列表中添加一个观察点。
+     *
+     * @param player 目标玩家。
+     * @param pointName 要添加的观察点名称（可以是预定义的点，也可以是 "player_Name" 格式）。
+     */
     public void addCyclePoint(ServerPlayerEntity player, String pointName) {
         getOrCreateSession(player.getUuid()).addPoint(pointName);
         player.sendMessage(configManager.getFormattedMessage("cycle_point_added", Map.of("name", pointName)), false);
     }
 
+    /**
+     * 从玩家的循环列表中移除一个观察点。
+     * 如果循环正在运行，会暂停循环，移除点后重新计算状态。
+     *
+     * @param player 目标玩家。
+     * @param pointName 要移除的观察点名称。
+     */
     public void removeCyclePoint(ServerPlayerEntity player, String pointName) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null) {
             boolean wasRunning = session.running;
             if (wasRunning) {
-                stopCycle(player); // Stop the current task
+                stopCycle(player); // 停止当前任务
             }
 
             session.removePoint(pointName);
             player.sendMessage(configManager.getFormattedMessage("cycle_point_removed", Map.of("name", pointName)), false);
 
             if (wasRunning && !session.isEmpty()) {
-                startCycle(player); // Restart with the modified list
+                startCycle(player); // 使用修改后的列表重新启动
             }
         } else {
             player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
@@ -192,6 +209,11 @@ public class CycleService {
         }
     }
 
+    /**
+     * 清空玩家的循环列表。
+     *
+     * @param player 目标玩家。
+     */
     public void clearCyclePoints(ServerPlayerEntity player) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null) {
@@ -202,20 +224,45 @@ public class CycleService {
         }
     }
 
+    /**
+     * 列出玩家当前循环列表中的所有点。
+     *
+     * @param player 目标玩家。
+     * @return 观察点名称列表。
+     */
     public List<String> listCyclePoints(ServerPlayerEntity player) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         return session != null ? session.getPoints() : Collections.emptyList();
     }
 
+    /**
+     * 设置玩家循环模式下的切换间隔。
+     *
+     * @param player 目标玩家。
+     * @param intervalSeconds 间隔秒数（最小为 1）。
+     */
     public void setCycleInterval(ServerPlayerEntity player, long intervalSeconds) {
         getOrCreateSession(player.getUuid()).setInterval(intervalSeconds);
         player.sendMessage(configManager.getFormattedMessage("cycle_interval_set", Map.of("seconds", String.valueOf(intervalSeconds))), false);
     }
 
+    /**
+     * 开始玩家的循环观察。使用默认视角模式。
+     * 如果列表为空，会发送提示消息。
+     *
+     * @param player 目标玩家。
+     */
     public void startCycle(ServerPlayerEntity player) {
         startCycle(player, ViewMode.ORBIT, null);
     }
 
+    /**
+     * 开始玩家的循环观察，并指定视角模式。
+     *
+     * @param player 目标玩家。
+     * @param viewMode 视角模式。
+     * @param cinematicMode 电影模式子选项。
+     */
     public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
         PlayerCycleSession session = getOrCreateSession(player.getUuid());
         if (session.isEmpty()) {
@@ -231,35 +278,47 @@ public class CycleService {
         session.setViewMode(viewMode, cinematicMode);
         session.start();
         
-        // Announce start with mode info
+        // 宣布开始并附带模式信息
         String modeMessage = getViewModeMessage(viewMode, cinematicMode);
         player.sendMessage(configManager.getFormattedMessage("cycle_started_with_mode", 
             Map.of("mode", modeMessage)), false);
 
-        // Switch to the first point immediately
+        // 立即切换到第一个点
         ServerSpectateManager.getInstance().switchToCyclePoint(player);
 
-        // Schedule subsequent switches
+        // 调度后续切换
         session.future = scheduler.scheduleAtFixedRate(() -> {
             MinecraftServer server = SpectateMod.getServer();
             if (server == null) return;
             server.execute(() -> {
                 ServerPlayerEntity onlinePlayer = server.getPlayerManager().getPlayer(player.getUuid());
                 if (onlinePlayer != null && isCycling(onlinePlayer.getUuid())) {
-                    nextCyclePoint(onlinePlayer, true); // Auto-switch
+                    nextCyclePoint(onlinePlayer, true); // 自动切换
                 }
             });
         }, session.intervalSeconds, session.intervalSeconds, TimeUnit.SECONDS);
     }
 
+    /**
+     * 停止玩家的循环观察任务。
+     * 注意：这只会停止调度任务，具体的玩家状态恢复由 {@link ServerSpectateManager} 处理。
+     *
+     * @param player 目标玩家。
+     */
     public void stopCycle(ServerPlayerEntity player) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session != null && session.running) {
             session.stop();
-            // The actual restoration of player state is handled by ServerSpectateManager
+            // 玩家状态的实际恢复由 ServerSpectateManager 处理
         }
     }
 
+    /**
+     * 切换到循环列表中的下一个观察点。
+     *
+     * @param player 目标玩家。
+     * @param isAuto 是否为定时任务自动触发（如果是 false，则表示玩家手动输入命令触发）。
+     */
     public void nextCyclePoint(ServerPlayerEntity player, boolean isAuto) {
         PlayerCycleSession session = cycleSessions.get(player.getUuid());
         if (session == null || !session.running || session.isEmpty()) {
@@ -280,11 +339,23 @@ public class CycleService {
         }
     }
 
+    /**
+     * 检查玩家是否正在进行循环观察。
+     *
+     * @param playerId 玩家的 UUID。
+     * @return 如果正在循环观察，返回 true。
+     */
     public boolean isCycling(UUID playerId) {
         PlayerCycleSession session = cycleSessions.get(playerId);
         return session != null && session.running;
     }
 
+    /**
+     * 获取玩家当前正在观察的循环点名称。
+     *
+     * @param playerId 玩家的 UUID。
+     * @return 当前点名称，如果未开始或列表为空则返回 null。
+     */
     public String getCurrentCyclePointName(UUID playerId) {
         PlayerCycleSession session = cycleSessions.get(playerId);
         if (session == null || session.isEmpty()) {
@@ -293,11 +364,17 @@ public class CycleService {
         return session.pointList.get(session.index);
     }
 
+    /**
+     * 获取玩家当前循环会话的视角模式。
+     */
     public ViewMode getCurrentViewMode(UUID playerId) {
         PlayerCycleSession session = cycleSessions.get(playerId);
         return session != null ? session.getViewMode() : ViewMode.ORBIT;
     }
 
+    /**
+     * 获取玩家当前循环会话的电影模式设置。
+     */
     public CinematicMode getCurrentCinematicMode(UUID playerId) {
         PlayerCycleSession session = cycleSessions.get(playerId);
         return session != null ? session.getCinematicMode() : null;

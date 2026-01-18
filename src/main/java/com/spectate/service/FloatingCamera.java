@@ -228,7 +228,8 @@ public class FloatingCamera {
     }
     
     /**
-     * 重置摄像机状态
+     * 重置摄像机状态。
+     * 当切换目标或重新开始旁观时应调用此方法。
      */
     public void reset() {
         initialized = false;
@@ -237,38 +238,84 @@ public class FloatingCamera {
     }
     
     // Getter和Setter方法用于参数调整
+
+    /**
+     * 设置浮游强度。
+     *
+     * @param floatingStrength 强度值 (0.1 - 3.0)。
+     */
     public void setFloatingStrength(double floatingStrength) {
         this.floatingStrength = Math.max(0.1, Math.min(3.0, floatingStrength));
     }
     
+    /**
+     * 设置浮游速度。
+     *
+     * @param floatingSpeed 速度值 (0.1 - 2.0)。
+     */
     public void setFloatingSpeed(double floatingSpeed) {
         this.floatingSpeed = Math.max(0.1, Math.min(2.0, floatingSpeed));
     }
     
+    /**
+     * 设置轨道半径。
+     *
+     * @param orbitRadius 半径值 (3.0 - 20.0)。
+     */
     public void setOrbitRadius(double orbitRadius) {
         this.orbitRadius = Math.max(3.0, Math.min(20.0, orbitRadius));
     }
     
+    /**
+     * 设置垂直高度变化幅度。
+     *
+     * @param heightVariation 变化幅度 (0.0 - 5.0)。
+     */
     public void setHeightVariation(double heightVariation) {
         this.heightVariation = Math.max(0.0, Math.min(5.0, heightVariation));
     }
     
+    /**
+     * 设置“呼吸”效果频率。
+     *
+     * @param breathingFrequency 频率值 (0.1 - 3.0)。
+     */
     public void setBreathingFrequency(double breathingFrequency) {
         this.breathingFrequency = Math.max(0.1, Math.min(3.0, breathingFrequency));
     }
     
+    /**
+     * 设置基础旋转速度。
+     *
+     * @param rotationSpeed 旋转速度 (0.1 - 1.0)。
+     */
     public void setRotationSpeed(double rotationSpeed) {
         this.rotationSpeed = Math.max(0.1, Math.min(1.0, rotationSpeed));
     }
     
+    /**
+     * 设置阻尼系数（惯性）。数值越大，运动越平滑但反应越慢。
+     *
+     * @param dampingFactor 阻尼系数 (0.8 - 0.99)。
+     */
     public void setDampingFactor(double dampingFactor) {
         this.dampingFactor = Math.max(0.8, Math.min(0.99, dampingFactor));
     }
     
+    /**
+     * 设置对目标的吸引力系数。控制摄像机回正的力度。
+     *
+     * @param attractionFactor 吸引力系数 (0.1 - 1.0)。
+     */
     public void setAttractionFactor(double attractionFactor) {
         this.attractionFactor = Math.max(0.1, Math.min(1.0, attractionFactor));
     }
     
+    /**
+     * 设置对目标移动的预测系数。
+     *
+     * @param predictionFactor 预测系数 (1.0 - 5.0)。
+     */
     public void setPredictionFactor(double predictionFactor) {
         this.predictionFactor = Math.max(1.0, Math.min(5.0, predictionFactor));
     }

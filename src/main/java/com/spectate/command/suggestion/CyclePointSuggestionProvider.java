@@ -14,7 +14,7 @@ import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A suggestion provider for a player's personal cycle list.
+ * 玩家个人循环列表的建议提供者。
  */
 public class CyclePointSuggestionProvider implements SuggestionProvider<ServerCommandSource> {
 

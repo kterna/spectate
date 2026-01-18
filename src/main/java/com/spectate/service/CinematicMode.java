@@ -15,10 +15,21 @@ public enum CinematicMode {
         this.name = name;
     }
 
+    /**
+     * 获取子模式的内部名称。
+     *
+     * @return 模式名称字符串。
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * 根据名称查找对应的 CinematicMode。
+     *
+     * @param name 模式名称（不区分大小写）。
+     * @return 对应的 CinematicMode，如果未找到则返回默认的 SLOW_ORBIT。
+     */
     public static CinematicMode fromString(String name) {
         for (CinematicMode mode : values()) {
             if (mode.name.equalsIgnoreCase(name)) {

@@ -84,58 +84,124 @@ public class ServerSpectateManager {
 
     /**
      * 停止所有观察活动。
+     *
+     * @param player 要停止旁观的玩家。
      */
     public void stopSpectating(ServerPlayerEntity player) {
         UUID playerId = player.getUuid();
         if (cycleService.isCycling(playerId)) {
             cycleService.stopCycle(player);
         }
-        // stopSpectating will send its own message if a session was active.
+        // 如果会话处于活动状态，stopSpectating 将发送它自己的消息。
         sessionManager.stopSpectating(player);
     }
 
+    /**
+     * 检查玩家是否正在进行旁观。
+     *
+     * @param player 玩家实体。
+     * @return 如果正在旁观，返回 true。
+     */
     public boolean isSpectating(ServerPlayerEntity player) {
         return sessionManager.isSpectating(player.getUuid());
     }
 
     /* ------------------- Cycle Management Facade ------------------- */
 
+    /**
+     * 向玩家的循环列表中添加一个观察点。
+     *
+     * @param player 目标玩家。
+     * @param pointName 观察点名称。
+     */
     public void addCyclePoint(ServerPlayerEntity player, String pointName) {
         cycleService.addCyclePoint(player, pointName);
     }
 
+    /**
+     * 从玩家的循环列表中移除一个观察点。
+     *
+     * @param player 目标玩家。
+     * @param pointName 观察点名称。
+     */
     public void removeCyclePoint(ServerPlayerEntity player, String pointName) {
         cycleService.removeCyclePoint(player, pointName);
     }
 
+    /**
+     * 清空玩家的循环列表。
+     *
+     * @param player 目标玩家。
+     */
     public void clearCyclePoints(ServerPlayerEntity player) {
         cycleService.clearCyclePoints(player);
     }
 
+    /**
+     * 获取玩家的循环列表。
+     *
+     * @param player 目标玩家。
+     * @return 观察点名称列表。
+     */
     public List<String> listCyclePoints(ServerPlayerEntity player) {
         return cycleService.listCyclePoints(player);
     }
 
+    /**
+     * 设置循环间隔。
+     *
+     * @param player 目标玩家。
+     * @param intervalSeconds 间隔秒数。
+     */
     public void setCycleInterval(ServerPlayerEntity player, long intervalSeconds) {
         cycleService.setCycleInterval(player, intervalSeconds);
     }
 
+    /**
+     * 开始循环观察（默认视角）。
+     *
+     * @param player 目标玩家。
+     */
     public void startCycle(ServerPlayerEntity player) {
         cycleService.startCycle(player);
     }
 
+    /**
+     * 开始循环观察（指定视角）。
+     *
+     * @param player 目标玩家。
+     * @param viewMode 视角模式。
+     * @param cinematicMode 电影模式。
+     */
     public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
         cycleService.startCycle(player, viewMode, cinematicMode);
     }
 
+    /**
+     * 手动切换到下一个观察点。
+     *
+     * @param player 目标玩家。
+     */
     public void nextCyclePoint(ServerPlayerEntity player) {
-        cycleService.nextCyclePoint(player, false); // Manual switch
+        cycleService.nextCyclePoint(player, false); // 手动切换
     }
 
+    /**
+     * 启用自动添加所有玩家到循环列表。
+     *
+     * @param player 目标玩家。
+     * @param excludePrefix 排除的前缀。
+     * @param excludeSuffix 排除的后缀。
+     */
     public void enableAutoAddAllPlayers(ServerPlayerEntity player, String excludePrefix, String excludeSuffix) {
         cycleService.enableAutoAddAllPlayers(player, excludePrefix, excludeSuffix);
     }
 
+    /**
+     * 禁用自动添加所有玩家。
+     *
+     * @param player 目标玩家。
+     */
     public void disableAutoAddAllPlayers(ServerPlayerEntity player) {
         cycleService.disableAutoAddAllPlayers(player);
     }
@@ -183,10 +249,16 @@ public class ServerSpectateManager {
 
     /* ------------------- Event Handlers ------------------- */
 
+    /**
+     * 处理玩家断开连接事件。
+     * 如果玩家正在旁观，则停止旁观并恢复状态。
+     *
+     * @param player 断开连接的玩家。
+     */
     public void onPlayerDisconnect(ServerPlayerEntity player) {
-        // If a player is spectating and disconnects, stop their session.
-        // This will restore their original state before the server saves their data,
-        // ensuring they log back in at their original position.
+        // 如果玩家正在旁观并断开连接，停止其会话。
+        // 这将在服务器保存数据之前恢复其原始状态，
+        // 确保他们登录时回到原来的位置。
         if (isSpectating(player)) {
             stopSpectating(player);
         }
@@ -194,21 +266,27 @@ public class ServerSpectateManager {
         cycleService.onPlayerLeave(player);
     }
 
+    /**
+     * 处理玩家连接事件。
+     * 检查并修复异常状态，处理自动添加逻辑。
+     *
+     * @param player 连接的玩家。
+     */
     public void onPlayerConnect(ServerPlayerEntity player) {
-        // Safety check for "zombie" sessions after a server crash.
-        // If a player is in spectator mode but the plugin has no record of them spectating,
-        // it means they were likely stuck during a crash.
+        // 服务器崩溃后的“僵尸”会话安全检查。
+        // 如果玩家处于旁观者模式，但插件没有记录他们在旁观，
+        // 这意味着他们可能在崩溃期间被卡住了。
         if (player.isSpectator() && !isSpectating(player)) {
-            // Restore them to a sane state.
+            // 将他们恢复到正常状态。
             player.getServer().execute(() -> {
                 ServerWorld world = player.getServer().getOverworld();
                 GameMode defaultGameMode = world.getServer().getDefaultGameMode();
 
-                // Use the cross-version-compatible method from SpectateSessionManager
+                // 使用 SpectateSessionManager 中的跨版本兼容方法
                 SpectateSessionManager.changeGameMode(player, defaultGameMode);
-                player.setCameraEntity(player); // Unset any camera target
+                player.setCameraEntity(player); // 取消任何摄像机目标
 
-                // Teleport to spawn to avoid being stuck in a weird location
+                // 传送到出生点，以避免被卡在奇怪的位置
                 BlockPos spawnPoint = world.getSpawnPos();
                 SpectateSessionManager.teleportPlayer(player, world, spawnPoint.getX() + 0.5, spawnPoint.getY(), spawnPoint.getZ() + 0.5, 0, 0);
 
