@@ -20,6 +20,11 @@ public class SpectateMod implements ModInitializer {
 
     private static MinecraftServer server;
 
+    /**
+     * 获取当前的 MinecraftServer 实例。
+     *
+     * @return 服务器实例，如果服务器未运行则可能为 null。
+     */
     public static MinecraftServer getServer() {
         return server;
     }
@@ -30,9 +35,10 @@ public class SpectateMod implements ModInitializer {
         // 记录服务器实例，供其他单例使用
         ServerLifecycleEvents.SERVER_STARTED.register(srv -> {
             server = srv;
-            // Initialize managers
-            ConfigManager.getInstance(); // Load config
-            com.spectate.data.SpectateStateSaver.getInstance().initialize(); // Load data
+            // 初始化各个管理器
+            ConfigManager.getInstance(); // 加载配置
+            com.spectate.data.SpectateStateSaver.getInstance().initialize(); // 加载数据
+            com.spectate.data.SpectateStatsManager.getInstance().initialize(); // 加载统计
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(srv -> server = null);
 
@@ -41,12 +47,12 @@ public class SpectateMod implements ModInitializer {
 
         // 注册玩家事件
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-            // The facade now handles the logic internally
+            // 逻辑已委托给 ServerSpectateManager 门面模式处理
             ServerSpectateManager.getInstance().onPlayerDisconnect(handler.player);
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            // The facade now handles the logic internally
+            // 逻辑已委托给 ServerSpectateManager 门面模式处理
             ServerSpectateManager.getInstance().onPlayerConnect(handler.player);
         });
     }

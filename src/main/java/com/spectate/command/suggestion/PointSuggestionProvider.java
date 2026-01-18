@@ -11,7 +11,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A suggestion provider for spectate point names.
+ * 观察点名称的建议提供者。
  */
 public class PointSuggestionProvider implements SuggestionProvider<ServerCommandSource> {
 

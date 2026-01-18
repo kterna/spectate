@@ -24,45 +24,96 @@ public class SpectatePointData {
     /** 每秒旋转角速度，单位：度/秒，0 表示不旋转 */
     private final double rotationSpeedDegPerSec;
     private final String description;
+    private final String group;
 
-    public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, double rotationSpeedDegPerSec, String description) {
+    public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, double rotationSpeedDegPerSec, String description, String group) {
         this.dimension = dimension;
         this.position = position;
         this.distance = distance;
         this.heightOffset = heightOffset;
         this.rotationSpeedDegPerSec = rotationSpeedDegPerSec;
         this.description = description;
+        this.group = group != null ? group : "default";
+    }
+
+    public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, double rotationSpeedDegPerSec, String description) {
+        this(dimension, position, distance, heightOffset, rotationSpeedDegPerSec, description, "default");
     }
 
     /**
      * 兼容旧代码的构造函数，默认旋转速度 1°/s。
+     *
+     * @param dimension 维度ID
+     * @param position 坐标
+     * @param distance 距离
+     * @param heightOffset 高度偏移
+     * @param description 描述
      */
     public SpectatePointData(String dimension, BlockPos position, double distance, double heightOffset, String description) {
-        this(dimension, position, distance, heightOffset, 1, description);
+        this(dimension, position, distance, heightOffset, 1, description, "default");
     }
 
+    /**
+     * 获取维度标识符。
+     *
+     * @return 维度ID字符串。
+     */
     public String getDimension() {
         return dimension;
     }
 
+    /**
+     * 获取目标中心坐标。
+     *
+     * @return 方块坐标。
+     */
     public BlockPos getPosition() {
         return position;
     }
 
+    /**
+     * 获取观察距离。
+     *
+     * @return 距离（方块）。
+     */
     public double getDistance() {
         return distance;
     }
 
+    /**
+     * 获取垂直高度偏移。
+     *
+     * @return 高度偏移（方块）。
+     */
     public double getHeightOffset() {
         return heightOffset;
     }
 
+    /**
+     * 获取旋转速度。
+     *
+     * @return 旋转速度（度/秒）。
+     */
     public double getRotationSpeed() {
         return rotationSpeedDegPerSec;
     }
 
+    /**
+     * 获取描述信息。
+     *
+     * @return 描述字符串。
+     */
     public String getDescription() {
         return description;
+    }
+
+    /**
+     * 获取分组名称。
+     *
+     * @return 分组名称。
+     */
+    public String getGroup() {
+        return group != null ? group : "default";
     }
 
     @Override
@@ -74,6 +125,7 @@ public class SpectatePointData {
                 ", heightOffset=" + heightOffset +
                 ", rotationSpeed=" + rotationSpeedDegPerSec +
                 ", description='" + description + '\'' +
+                ", group='" + group + '\'' +
                 '}';
     }
 
@@ -87,11 +139,12 @@ public class SpectatePointData {
                 Double.compare(that.rotationSpeedDegPerSec, rotationSpeedDegPerSec) == 0 &&
                 Objects.equals(dimension, that.dimension) &&
                 Objects.equals(position, that.position) &&
-                Objects.equals(description, that.description);
+                Objects.equals(description, that.description) &&
+                Objects.equals(getGroup(), that.getGroup());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(dimension, position, distance, heightOffset, rotationSpeedDegPerSec, description);
+        return Objects.hash(dimension, position, distance, heightOffset, rotationSpeedDegPerSec, description, getGroup());
     }
 } 

@@ -1,6 +1,7 @@
 package com.spectate.service;
 
 import com.spectate.config.ConfigManager;
+import com.spectate.data.PlayerPreference;
 import com.spectate.data.SpectatePointData;
 import com.spectate.data.SpectateStateSaver;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -42,34 +43,59 @@ public class ServerSpectateManager {
 
     /**
      * 观察一个已定义的点。
+     * 优先使用玩家上次的偏好设置。
      */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point) {
-        sessionManager.spectatePoint(player, point, false);
+        PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
+        ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
+        
+        sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
     }
 
     /**
      * 使用指定视角模式观察一个已定义的点。
+     * 同时保存该偏好。
      */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, ViewMode viewMode, CinematicMode cinematicMode) {
+        // 保存偏好
+        PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
+        pref.lastSpectateViewMode = viewMode;
+        pref.lastSpectateCinematicMode = cinematicMode;
+        stateSaver.savePlayerPreference(player.getUuid(), pref);
+
         sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
     }
 
     /**
      * 观察另一个玩家。
+     * 优先使用玩家上次的偏好设置。
      */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target) {
-        sessionManager.spectatePlayer(viewer, target, false);
+        PlayerPreference pref = stateSaver.getPlayerPreference(viewer.getUuid());
+        ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
+
+        sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
     }
 
     /**
      * 使用指定视角模式观察另一个玩家。
+     * 同时保存该偏好。
      */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
+        // 保存偏好
+        PlayerPreference pref = stateSaver.getPlayerPreference(viewer.getUuid());
+        pref.lastSpectateViewMode = viewMode;
+        pref.lastSpectateCinematicMode = cinematicMode;
+        stateSaver.savePlayerPreference(viewer.getUuid(), pref);
+        
         sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
     }
 
     /**
      * 观察任意坐标。
+     * 使用默认的或上次的旁观模式。
      */
     public void spectateCoords(ServerPlayerEntity player, double x, double y, double z, double distance, double height, double rotation) {
         String pointName = String.format("coords(%.0f,%.0f,%.0f)", x, y, z);
@@ -79,63 +105,145 @@ public class ServerSpectateManager {
         //$$String dimension = player.getServerWorld().getRegistryKey().getValue().toString();
         //#endif
         SpectatePointData data = new SpectatePointData(dimension, new BlockPos((int)x, (int)y, (int)z), distance, height, rotation, pointName);
-        sessionManager.spectatePoint(player, data, false);
+        
+        // 同样使用普通旁观的偏好
+        PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
+        ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
+        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
+
+        sessionManager.spectatePoint(player, data, false, viewMode, cinematicMode);
     }
 
     /**
      * 停止所有观察活动。
+     *
+     * @param player 要停止旁观的玩家。
      */
     public void stopSpectating(ServerPlayerEntity player) {
         UUID playerId = player.getUuid();
         if (cycleService.isCycling(playerId)) {
             cycleService.stopCycle(player);
         }
-        // stopSpectating will send its own message if a session was active.
+        // 如果会话处于活动状态，stopSpectating 将发送它自己的消息。
         sessionManager.stopSpectating(player);
     }
 
+    /**
+     * 检查玩家是否正在进行旁观。
+     *
+     * @param player 玩家实体。
+     * @return 如果正在旁观，返回 true。
+     */
     public boolean isSpectating(ServerPlayerEntity player) {
         return sessionManager.isSpectating(player.getUuid());
     }
 
     /* ------------------- Cycle Management Facade ------------------- */
 
+    /**
+     * 向玩家的循环列表中添加一个观察点。
+     *
+     * @param player 目标玩家。
+     * @param pointName 观察点名称。
+     */
     public void addCyclePoint(ServerPlayerEntity player, String pointName) {
         cycleService.addCyclePoint(player, pointName);
     }
 
+    /**
+     * 向玩家的循环列表中添加指定分组的所有观察点。
+     *
+     * @param player 目标玩家。
+     * @param group 分组名称。
+     */
+    public void addCycleGroup(ServerPlayerEntity player, String group) {
+        cycleService.addCycleGroup(player, group);
+    }
+
+    /**
+     * 从玩家的循环列表中移除一个观察点。
+     *
+     * @param player 目标玩家。
+     * @param pointName 观察点名称。
+     */
     public void removeCyclePoint(ServerPlayerEntity player, String pointName) {
         cycleService.removeCyclePoint(player, pointName);
     }
 
+    /**
+     * 清空玩家的循环列表。
+     *
+     * @param player 目标玩家。
+     */
     public void clearCyclePoints(ServerPlayerEntity player) {
         cycleService.clearCyclePoints(player);
     }
 
+    /**
+     * 获取玩家的循环列表。
+     *
+     * @param player 目标玩家。
+     * @return 观察点名称列表。
+     */
     public List<String> listCyclePoints(ServerPlayerEntity player) {
         return cycleService.listCyclePoints(player);
     }
 
+    /**
+     * 设置循环间隔。
+     *
+     * @param player 目标玩家。
+     * @param intervalSeconds 间隔秒数。
+     */
     public void setCycleInterval(ServerPlayerEntity player, long intervalSeconds) {
         cycleService.setCycleInterval(player, intervalSeconds);
     }
 
+    /**
+     * 开始循环观察（默认视角）。
+     *
+     * @param player 目标玩家。
+     */
     public void startCycle(ServerPlayerEntity player) {
         cycleService.startCycle(player);
     }
 
+    /**
+     * 开始循环观察（指定视角）。
+     *
+     * @param player 目标玩家。
+     * @param viewMode 视角模式。
+     * @param cinematicMode 电影模式。
+     */
     public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
         cycleService.startCycle(player, viewMode, cinematicMode);
     }
 
+    /**
+     * 手动切换到下一个观察点。
+     *
+     * @param player 目标玩家。
+     */
     public void nextCyclePoint(ServerPlayerEntity player) {
-        cycleService.nextCyclePoint(player, false); // Manual switch
+        cycleService.nextCyclePoint(player, false); // 手动切换
     }
 
+    /**
+     * 启用自动添加所有玩家到循环列表。
+     *
+     * @param player 目标玩家。
+     * @param excludePrefix 排除的前缀。
+     * @param excludeSuffix 排除的后缀。
+     */
     public void enableAutoAddAllPlayers(ServerPlayerEntity player, String excludePrefix, String excludeSuffix) {
         cycleService.enableAutoAddAllPlayers(player, excludePrefix, excludeSuffix);
     }
 
+    /**
+     * 禁用自动添加所有玩家。
+     *
+     * @param player 目标玩家。
+     */
     public void disableAutoAddAllPlayers(ServerPlayerEntity player) {
         cycleService.disableAutoAddAllPlayers(player);
     }
@@ -183,10 +291,16 @@ public class ServerSpectateManager {
 
     /* ------------------- Event Handlers ------------------- */
 
+    /**
+     * 处理玩家断开连接事件。
+     * 如果玩家正在旁观，则停止旁观并恢复状态。
+     *
+     * @param player 断开连接的玩家。
+     */
     public void onPlayerDisconnect(ServerPlayerEntity player) {
-        // If a player is spectating and disconnects, stop their session.
-        // This will restore their original state before the server saves their data,
-        // ensuring they log back in at their original position.
+        // 如果玩家正在旁观并断开连接，停止其会话。
+        // 这将在服务器保存数据之前恢复其原始状态，
+        // 确保他们登录时回到原来的位置。
         if (isSpectating(player)) {
             stopSpectating(player);
         }
@@ -194,21 +308,27 @@ public class ServerSpectateManager {
         cycleService.onPlayerLeave(player);
     }
 
+    /**
+     * 处理玩家连接事件。
+     * 检查并修复异常状态，处理自动添加逻辑。
+     *
+     * @param player 连接的玩家。
+     */
     public void onPlayerConnect(ServerPlayerEntity player) {
-        // Safety check for "zombie" sessions after a server crash.
-        // If a player is in spectator mode but the plugin has no record of them spectating,
-        // it means they were likely stuck during a crash.
+        // 服务器崩溃后的“僵尸”会话安全检查。
+        // 如果玩家处于旁观者模式，但插件没有记录他们在旁观，
+        // 这意味着他们可能在崩溃期间被卡住了。
         if (player.isSpectator() && !isSpectating(player)) {
-            // Restore them to a sane state.
+            // 将他们恢复到正常状态。
             player.getServer().execute(() -> {
                 ServerWorld world = player.getServer().getOverworld();
                 GameMode defaultGameMode = world.getServer().getDefaultGameMode();
 
-                // Use the cross-version-compatible method from SpectateSessionManager
+                // 使用 SpectateSessionManager 中的跨版本兼容方法
                 SpectateSessionManager.changeGameMode(player, defaultGameMode);
-                player.setCameraEntity(player); // Unset any camera target
+                player.setCameraEntity(player); // 取消任何摄像机目标
 
-                // Teleport to spawn to avoid being stuck in a weird location
+                // 传送到出生点，以避免被卡在奇怪的位置
                 BlockPos spawnPoint = world.getSpawnPos();
                 SpectateSessionManager.teleportPlayer(player, world, spawnPoint.getX() + 0.5, spawnPoint.getY(), spawnPoint.getZ() + 0.5, 0, 0);
 
@@ -217,5 +337,28 @@ public class ServerSpectateManager {
         }
         // 通知 CycleService 新玩家加入，自动添加到启用了 autoAddAllPlayers 的循环列表中
         cycleService.onPlayerJoin(player);
+    }
+
+    /* ------------------- Who Command Support ------------------- */
+
+    /**
+     * 获取所有正在旁观的玩家UUID列表
+     */
+    public java.util.Set<UUID> getSpectatingPlayerIds() {
+        return sessionManager.getSpectatingPlayerIds();
+    }
+
+    /**
+     * 获取指定玩家的旁观目标信息
+     */
+    public String getSpectateTargetInfo(UUID playerId) {
+        return sessionManager.getSpectateTargetInfo(playerId);
+    }
+
+    /**
+     * 获取指定玩家的旁观视角模式信息
+     */
+    public String getSpectateViewModeInfo(UUID playerId) {
+        return sessionManager.getSpectateViewModeInfo(playerId);
     }
 }

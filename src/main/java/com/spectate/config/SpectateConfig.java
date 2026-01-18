@@ -55,8 +55,10 @@ public class SpectateConfig {
         public String point_removed = "已移除观察点: {name}";
         public String point_not_found = "未找到观察点: {name}";
         public String point_list_header = "观察点列表:";
+        public String point_list_group_header = "分组 {group} 的观察点列表:";
         public String point_list_item = " - {name}";
         public String point_list_empty = "没有已保存的观察点。";
+        public String point_list_group_empty = "分组 {group} 下没有观察点。";
 
         public String cycle_point_added = "已添加至循环: {name}";
         public String cycle_point_removed = "已从循环中移除: {name}";
@@ -81,5 +83,20 @@ public class SpectateConfig {
         public String spectate_stop = "你已停止观察。";
         public String spectate_already_running = "已在观察中。请先使用 /cspectate stop 停止。";
         public String must_be_player = "该命令只能由玩家执行。";
+
+        public String who_header = "§e当前旁观状态:";
+        public String who_item = "§7 - §f{viewer} §7-> §a{target} §8({mode})";
+        public String who_empty = "§7当前没有玩家在旁观。";
+
+        public String stats_header_self = "§e你的旁观统计:";
+        public String stats_header_other = "§e玩家 {name} 的旁观统计:";
+        public String stats_viewing_time = "§7 - 总观看时间: §f{time}";
+        public String stats_watched_time = "§7 - 被观看时间: §f{time}";
+        public String stats_not_found = "§c没有找到该玩家的统计数据。";
+        
+        public String top_header_viewing = "§e观看时长排行榜 (Top 10):";
+        public String top_header_watched = "§e被观看时长排行榜 (Top 10):";
+        public String top_item = "§6{rank}. §f{name}: §a{time}";
+        public String top_empty = "§7暂无数据。";
     }
 }
