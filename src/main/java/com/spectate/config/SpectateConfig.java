@@ -85,5 +85,16 @@ public class SpectateConfig {
         public String who_header = "§e当前旁观状态:";
         public String who_item = "§7 - §f{viewer} §7-> §a{target} §8({mode})";
         public String who_empty = "§7当前没有玩家在旁观。";
+
+        public String stats_header_self = "§e你的旁观统计:";
+        public String stats_header_other = "§e玩家 {name} 的旁观统计:";
+        public String stats_viewing_time = "§7 - 总观看时间: §f{time}";
+        public String stats_watched_time = "§7 - 被观看时间: §f{time}";
+        public String stats_not_found = "§c没有找到该玩家的统计数据。";
+        
+        public String top_header_viewing = "§e观看时长排行榜 (Top 10):";
+        public String top_header_watched = "§e被观看时长排行榜 (Top 10):";
+        public String top_item = "§6{rank}. §f{name}: §a{time}";
+        public String top_empty = "§7暂无数据。";
     }
 }

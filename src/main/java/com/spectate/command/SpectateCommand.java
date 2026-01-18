@@ -12,8 +12,12 @@ import com.spectate.config.SpectateConfig;
 import com.spectate.data.SpectatePointData;
 import com.spectate.service.SpectatePointManager;
 import com.spectate.service.ServerSpectateManager;
+import com.spectate.service.SpectateSessionManager;
 import com.spectate.service.ViewMode;
 import com.spectate.service.CinematicMode;
+import com.spectate.data.SpectateStatsManager;
+import com.spectate.data.SpectateStats;
+import java.util.UUID;
 //#if MC >= 11900
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.text.Text;
@@ -96,6 +100,8 @@ public class SpectateCommand {
         root.then(buildCoordsCommand());
         root.then(buildConfigCommand());
         root.then(buildWhoCommand());
+        root.then(buildStatsCommand());
+        root.then(buildTopCommand());
     }
 
     /**
@@ -1112,5 +1118,133 @@ public class SpectateCommand {
             case "floating_prediction_factor": return "浮游视角预测因子，控制对目标移动的预测程度 (0.5-5.0)";
             default: return "";
         }
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildStatsCommand() {
+        LiteralArgumentBuilder<ServerCommandSource> stats = CommandManager.literal("stats");
+
+        // stats (self)
+        stats.executes(ctx -> {
+            ServerPlayerEntity player = ctx.getSource().getPlayer();
+            showStats(ctx.getSource(), player.getUuid(), player.getName().getString(), true);
+            return 1;
+        });
+
+        // stats <player>
+        stats.then(CommandManager.argument("target", StringArgumentType.word())
+                .suggests((c,b)->CommandSource.suggestMatching(c.getSource().getServer().getPlayerManager().getPlayerNames(), b))
+                .executes(ctx -> {
+                    String targetName = StringArgumentType.getString(ctx, "target");
+                    
+                    ServerPlayerEntity target = ctx.getSource().getServer().getPlayerManager().getPlayer(targetName);
+                    UUID targetId = null;
+                    if (target != null) {
+                        targetId = target.getUuid();
+                    } else {
+                        // Try offline lookup
+                        //#if MC >= 11700
+                        com.mojang.authlib.GameProfile profile = ctx.getSource().getServer().getUserCache().findByName(targetName).orElse(null);
+                        //#else
+                        //$$com.mojang.authlib.GameProfile profile = ctx.getSource().getMinecraftServer().getUserCache().findByName(targetName);
+                        //#endif
+                        if (profile != null) {
+                            targetId = profile.getId();
+                        }
+                    }
+                    
+                    if (targetId == null) {
+                        sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
+                        return 0;
+                    }
+                    
+                    showStats(ctx.getSource(), targetId, targetName, false);
+                    return 1;
+                }));
+                
+        return stats;
+    }
+
+    private static void showStats(ServerCommandSource source, UUID playerId, String name, boolean isSelf) {
+        SpectateStats stats = SpectateStatsManager.getInstance().getStats(playerId);
+        long storedViewing = stats.totalSpectatingTime;
+        long storedWatched = stats.totalSpectatedTime;
+        
+        long currentViewing = SpectateSessionManager.getInstance().getCurrentSpectatingDuration(playerId);
+        long currentWatched = SpectateSessionManager.getInstance().getCurrentBeingSpectatedDuration(playerId);
+        
+        long totalViewing = storedViewing + currentViewing;
+        long totalWatched = storedWatched + currentWatched;
+        
+        if (totalViewing == 0 && totalWatched == 0) {
+             sendError(source, CONFIG_MANAGER.getMessage("stats_not_found"));
+             return;
+        }
+
+        if (isSelf) {
+            sendFeedback(source, CONFIG_MANAGER.getMessage("stats_header_self"), false);
+        } else {
+            sendFeedback(source, CONFIG_MANAGER.getFormattedMessage("stats_header_other", Map.of("name", name)), false);
+        }
+        
+        sendFeedback(source, CONFIG_MANAGER.getFormattedMessage("stats_viewing_time", Map.of("time", formatTime(totalViewing))), false);
+        sendFeedback(source, CONFIG_MANAGER.getFormattedMessage("stats_watched_time", Map.of("time", formatTime(totalWatched))), false);
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> buildTopCommand() {
+        LiteralArgumentBuilder<ServerCommandSource> top = CommandManager.literal("top");
+        
+        top.executes(ctx -> {
+            // Default to viewing
+            showTop(ctx.getSource(), "viewing");
+            return 1;
+        });
+        
+        top.then(CommandManager.literal("viewing").executes(ctx -> {
+            showTop(ctx.getSource(), "viewing");
+            return 1;
+        }));
+        
+        top.then(CommandManager.literal("watched").executes(ctx -> {
+            showTop(ctx.getSource(), "watched");
+            return 1;
+        }));
+        
+        return top;
+    }
+    
+    private static void showTop(ServerCommandSource source, String type) {
+        List<Map.Entry<UUID, Long>> list;
+        boolean viewing = "viewing".equals(type);
+        
+        if (viewing) {
+            list = SpectateStatsManager.getInstance().getTopViewing(10);
+            sendFeedback(source, CONFIG_MANAGER.getMessage("top_header_viewing"), false);
+        } else {
+            list = SpectateStatsManager.getInstance().getTopWatched(10);
+            sendFeedback(source, CONFIG_MANAGER.getMessage("top_header_watched"), false);
+        }
+        
+        if (list.isEmpty()) {
+            sendFeedback(source, CONFIG_MANAGER.getMessage("top_empty"), false);
+            return;
+        }
+        
+        int rank = 1;
+        for (Map.Entry<UUID, Long> entry : list) {
+            String name = SpectateStatsManager.getInstance().getName(entry.getKey());
+            sendFeedback(source, CONFIG_MANAGER.getFormattedMessage("top_item", 
+                Map.of("rank", String.valueOf(rank), "name", name, "time", formatTime(entry.getValue()))), false);
+            rank++;
+        }
+    }
+
+    private static String formatTime(long millis) {
+        long seconds = millis / 1000;
+        long h = seconds / 3600;
+        long m = (seconds % 3600) / 60;
+        long s = seconds % 60;
+        if (h > 0) return String.format("%dh %dm %ds", h, m, s);
+        if (m > 0) return String.format("%dm %ds", m, s);
+        return String.format("%ds", s);
     }
 }

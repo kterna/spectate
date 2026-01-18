@@ -38,6 +38,7 @@ public class SpectateMod implements ModInitializer {
             // 初始化各个管理器
             ConfigManager.getInstance(); // 加载配置
             com.spectate.data.SpectateStateSaver.getInstance().initialize(); // 加载数据
+            com.spectate.data.SpectateStatsManager.getInstance().initialize(); // 加载统计
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(srv -> server = null);
 

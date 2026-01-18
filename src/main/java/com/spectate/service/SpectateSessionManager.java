@@ -3,6 +3,7 @@ package com.spectate.service;
 import com.spectate.SpectateMod;
 import com.spectate.config.ConfigManager;
 import com.spectate.data.SpectatePointData;
+import com.spectate.data.SpectateStatsManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -233,6 +234,15 @@ public class SpectateSessionManager {
         SpectateSession session = activeSpectations.remove(playerId);
         if (session != null) {
             session.cancel();
+            
+            // 记录统计数据
+            long duration = System.currentTimeMillis() - session.startTime;
+            SpectateStatsManager.getInstance().addSpectatingTime(playerId, duration);
+            
+            if (!session.isObservingPoint() && session.getTargetPlayer() != null) {
+                 SpectateStatsManager.getInstance().addSpectatedTime(session.getTargetPlayer().getUuid(), duration);
+                 SpectateStatsManager.getInstance().updateName(session.getTargetPlayer().getUuid(), session.getTargetPlayer().getName().getString());
+            }
         }
     }
 
@@ -268,6 +278,9 @@ public class SpectateSessionManager {
             player.sendMessage(configManager.getMessage("spectate_already_running"), false);
             return;
         }
+
+        // 更新统计用的名字
+        SpectateStatsManager.getInstance().updateName(player.getUuid(), player.getName().getString());
 
         savePlayerOriginalState(player);
         cancelCurrentSpectation(player.getUuid());
@@ -754,6 +767,10 @@ public class SpectateSessionManager {
             return;
         }
 
+        // 更新统计用的名字
+        SpectateStatsManager.getInstance().updateName(viewer.getUuid(), viewer.getName().getString());
+        SpectateStatsManager.getInstance().updateName(target.getUuid(), target.getName().getString());
+
         savePlayerOriginalState(viewer);
         cancelCurrentSpectation(viewer.getUuid());
 
@@ -855,6 +872,38 @@ public class SpectateSessionManager {
      */
     public boolean isSpectating(UUID playerId) {
         return playerOriginalStates.containsKey(playerId);
+    }
+
+    /**
+     * 获取指定玩家当前正在进行的旁观会话时长（毫秒）。
+     *
+     * @param playerId 玩家的 UUID。
+     * @return 时长（毫秒），如果没有在旁观则返回 0。
+     */
+    public long getCurrentSpectatingDuration(UUID playerId) {
+        SpectateSession session = activeSpectations.get(playerId);
+        if (session != null) {
+            return System.currentTimeMillis() - session.startTime;
+        }
+        return 0;
+    }
+
+    /**
+     * 获取指定玩家当前正在被旁观的总时长（毫秒）。
+     * 可能会有多个玩家同时旁观同一个目标，这里累加所有会话的时长。
+     *
+     * @param targetId 目标玩家的 UUID。
+     * @return 时长（毫秒）。
+     */
+    public long getCurrentBeingSpectatedDuration(UUID targetId) {
+        long total = 0;
+        long now = System.currentTimeMillis();
+        for (SpectateSession session : activeSpectations.values()) {
+            if (!session.isObservingPoint() && session.getTargetPlayer() != null && session.getTargetPlayer().getUuid().equals(targetId)) {
+                total += (now - session.startTime);
+            }
+        }
+        return total;
     }
 
     /**
