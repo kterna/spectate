@@ -300,18 +300,62 @@ public class SpectateSessionManager {
             
             updateOrbitingPosition(player, session, 0);
 
-            double speedDeg = point.getRotationSpeed();
-            if (speedDeg > 0 || viewMode != ViewMode.ORBIT) {
-                session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
-                    if (isPlayerRemoved(player)) {
-                        cancelCurrentSpectation(player.getUuid());
-                        return;
-                    }
-                    double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
+            // 启动定时任务（位置更新 + ActionBar）
+            session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
+                if (isPlayerRemoved(player)) {
+                    cancelCurrentSpectation(player.getUuid());
+                    return;
+                }
+                
+                double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
+                
+                // 更新位置
+                if (point.getRotationSpeed() > 0 || viewMode != ViewMode.ORBIT) {
                     updateOrbitingPosition(player, session, elapsed);
-                }, 50, 50, TimeUnit.MILLISECONDS);
-            }
+                }
+                
+                // 发送 ActionBar 信息
+                sendActionBarInfo(player, session);
+                
+            }, 50, 50, TimeUnit.MILLISECONDS);
         });
+    }
+
+    private void sendActionBarInfo(ServerPlayerEntity player, SpectateSession session) {
+        String message = "";
+        if (session.isObservingPoint()) {
+            SpectatePointData point = session.getSpectatePointData();
+            if (point != null) {
+                message = "§e正在观察: §f" + point.getDescription();
+            }
+        } else {
+            ServerPlayerEntity target = session.getTargetPlayer();
+            if (target != null && !isPlayerRemoved(target)) {
+                float health = target.getHealth();
+                float maxHealth = target.getMaxHealth();
+                String hpColor = health < maxHealth * 0.3 ? "§c" : (health < maxHealth * 0.7 ? "§e" : "§a");
+                
+                message = String.format("§e正在观察: §f%s  %s❤ %.1f/%.1f  §b[%.0f, %.0f, %.0f]", 
+                    target.getName().getString(), hpColor, health, maxHealth, target.getX(), target.getY(), target.getZ());
+            } else {
+                message = "§c目标已离线";
+            }
+        }
+        
+        // 如果正在循环模式，添加倒计时
+        if (CycleService.getInstance().isCycling(player.getUuid())) {
+            long remainingMillis = CycleService.getInstance().getTimeRemaining(player.getUuid());
+            long remainingSeconds = Math.max(0, remainingMillis / 1000);
+            message += String.format("  §d[循环: %ds]", remainingSeconds);
+        }
+        
+        if (!message.isEmpty()) {
+            //#if MC >= 11900
+            player.sendMessage(Text.literal(message), true);
+            //#else
+            //$$player.sendMessage(new net.minecraft.text.LiteralText(message), true);
+            //#endif
+        }
     }
 
     private void updateOrbitingPosition(ServerPlayerEntity player, SpectateSession session, double elapsedSeconds) {
@@ -790,7 +834,7 @@ public class SpectateSessionManager {
             // 初始位置设置
             updatePlayerSpectatePosition(viewer, target, 0);
             
-            // 开始周期性更新位置
+            // 开始周期性更新位置和信息
             session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
                 if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) {
                     cancelCurrentSpectation(viewer.getUuid());
@@ -812,6 +856,10 @@ public class SpectateSessionManager {
                 
                 double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
                 updatePlayerSpectatePosition(viewer, target, elapsed);
+                
+                // 发送 ActionBar 信息
+                sendActionBarInfo(viewer, session);
+                
             }, 50, 50, TimeUnit.MILLISECONDS);
         });
     }

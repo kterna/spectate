@@ -56,6 +56,7 @@ public class CycleService {
         private boolean running;
         private ViewMode viewMode;
         private CinematicMode cinematicMode;
+        private volatile long currentPointStartTime; // 记录当前观察点开始的时间戳
 
         // 自动添加所有玩家相关
         private boolean autoAddAllPlayers;
@@ -72,6 +73,7 @@ public class CycleService {
             this.autoAddAllPlayers = false;
             this.excludePrefix = null;
             this.excludeSuffix = null;
+            this.currentPointStartTime = 0;
         }
 
         void addPoint(String pointName) {
@@ -103,6 +105,7 @@ public class CycleService {
         void start() {
             this.running = true;
             this.index = 0;
+            this.currentPointStartTime = System.currentTimeMillis();
         }
         
         void stop() {
@@ -124,6 +127,17 @@ public class CycleService {
 
         CinematicMode getCinematicMode() {
             return cinematicMode;
+        }
+
+        long getTimeRemaining() {
+            if (!running) return 0;
+            long elapsed = System.currentTimeMillis() - currentPointStartTime;
+            long remaining = (intervalSeconds * 1000) - elapsed;
+            return Math.max(0, remaining);
+        }
+
+        void updateStartTime() {
+            this.currentPointStartTime = System.currentTimeMillis();
         }
 
         void setAutoAddAllPlayers(boolean enabled, String excludePrefix, String excludeSuffix) {
@@ -376,6 +390,7 @@ public class CycleService {
         }
 
         session.index = (session.index + 1) % session.pointList.size();
+        session.updateStartTime(); // 更新开始时间
         ServerSpectateManager.getInstance().switchToCyclePoint(player);
 
         if (!isAuto) {
@@ -384,6 +399,17 @@ public class CycleService {
                 "total", String.valueOf(session.pointList.size())
             )), false);
         }
+    }
+
+    /**
+     * 获取玩家当前循环周期的剩余时间（毫秒）。
+     *
+     * @param playerId 玩家的 UUID。
+     * @return 剩余毫秒数。如果没有在循环，返回 0。
+     */
+    public long getTimeRemaining(UUID playerId) {
+        PlayerCycleSession session = cycleSessions.get(playerId);
+        return session != null ? session.getTimeRemaining() : 0;
     }
 
     /**
