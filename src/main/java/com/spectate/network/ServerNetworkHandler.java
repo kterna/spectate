@@ -50,8 +50,9 @@ public class ServerNetworkHandler {
     public void registerServerReceivers() {
         //#if MC >= 12005
         ServerPlayNetworking.registerGlobalReceiver(ClientCapabilityPayload.ID, (payload, context) -> {
-            context.server().execute(() -> {
-                handleClientCapability(context.player(), payload);
+            ServerPlayerEntity player = context.player();
+            player.getServer().execute(() -> {
+                handleClientCapability(player, payload);
             });
         });
         //#else
