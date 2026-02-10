@@ -9,6 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [ '1.21', '1.21.7', '1.21.5', '1.21.4', '1.16.5' ]
 
     steps:
     - name: Checkout repository
@@ -27,13 +31,13 @@ jobs:
       uses: gradle/gradle-build-action@v3
 
     - name: Build with Gradle
-      run: ./gradlew buildAndGather
+      run: ./gradlew :${{ matrix.version }}:build
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: build-artifacts
-        path: build/libs/*.jar
+        name: build-artifacts-${{ matrix.version }}
+        path: versions/${{ matrix.version }}/build/libs/*.jar
         if-no-files-found: error
         retention-days: 14
 
