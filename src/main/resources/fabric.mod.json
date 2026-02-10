@@ -8,10 +8,13 @@
   "contact": {},
   "license": "All-Rights-Reserved",
   "icon": "assets/spectate/icon.png",
-  "environment": "server",
+  "environment": "*",
   "entrypoints": {
     "main": [
       "com.spectate.SpectateMod"
+    ],
+    "client": [
+      "com.spectate.client.SpectateModClient"
     ]
   },
   "depends": {
@@ -20,6 +23,10 @@
     "minecraft": "${minecraft_version}"
   },
   "mixins": [
-    "spectate.mixins.json"
+    "spectate.mixins.json",
+    {
+      "config": "spectate-client.mixins.json",
+      "environment": "client"
+    }
   ]
 }

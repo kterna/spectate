@@ -4,6 +4,10 @@ import com.spectate.SpectateMod;
 import com.spectate.config.ConfigManager;
 import com.spectate.data.SpectatePointData;
 import com.spectate.data.SpectateStatsManager;
+import com.spectate.network.ServerNetworkHandler;
+import com.spectate.network.packet.SpectateParamsPayload;
+import com.spectate.network.packet.SpectateStatePayload;
+import com.spectate.network.packet.TargetUpdatePayload;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -125,12 +129,18 @@ public class SpectateSessionManager {
     static class SpectateSession {
         private final long startTime;
         private ScheduledFuture<?> orbitFuture;
+        private ScheduledFuture<?> targetUpdateFuture; // 目标位置更新任务
         private final SpectatePointData spectatePointData;
         private final ServerPlayerEntity targetPlayer;
         private final boolean isPoint;
         private final ViewMode viewMode;
         private final CinematicMode cinematicMode;
         private FloatingCamera floatingCamera; // 浮游摄像机实例
+        private boolean useSmoothClient; // 是否使用客户端平滑
+
+        // 目标位置跟踪（用于计算速度）
+        private double lastTargetX, lastTargetY, lastTargetZ;
+        private long lastTargetTime;
 
         SpectateSession(SpectatePointData pointData) {
             this.spectatePointData = pointData;
@@ -139,6 +149,7 @@ public class SpectateSessionManager {
             this.viewMode = ViewMode.ORBIT;
             this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
+            this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
@@ -149,6 +160,7 @@ public class SpectateSessionManager {
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
             this.cinematicMode = cinematicMode;
             this.startTime = System.currentTimeMillis();
+            this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
@@ -159,6 +171,7 @@ public class SpectateSessionManager {
             this.viewMode = ViewMode.ORBIT;
             this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
+            this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
@@ -169,6 +182,7 @@ public class SpectateSessionManager {
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
             this.cinematicMode = cinematicMode;
             this.startTime = System.currentTimeMillis();
+            this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
@@ -186,6 +200,10 @@ public class SpectateSessionManager {
             if (orbitFuture != null) {
                 orbitFuture.cancel(false);
                 orbitFuture = null;
+            }
+            if (targetUpdateFuture != null) {
+                targetUpdateFuture.cancel(false);
+                targetUpdateFuture = null;
             }
         }
 
@@ -211,6 +229,18 @@ public class SpectateSessionManager {
 
         FloatingCamera getFloatingCamera() {
             return floatingCamera;
+        }
+
+        boolean isUseSmoothClient() {
+            return useSmoothClient;
+        }
+
+        void setUseSmoothClient(boolean useSmoothClient) {
+            this.useSmoothClient = useSmoothClient;
+        }
+
+        long getStartTime() {
+            return startTime;
         }
     }
 
@@ -288,16 +318,26 @@ public class SpectateSessionManager {
         SpectateSession session = new SpectateSession(point, viewMode, cinematicMode);
         activeSpectations.put(player.getUuid(), session);
 
+        // 检查客户端是否有平滑能力
+        boolean hasSmoothClient = ServerNetworkHandler.getInstance().hasSmoothCapability(player.getUuid());
+        session.setUseSmoothClient(hasSmoothClient);
+
         MinecraftServer server = SpectateMod.getServer();
         if (server == null) return;
 
         server.execute(() -> {
             changeGameMode(player, GameMode.SPECTATOR);
-            
+
             String modeMessage = getViewModeMessage(viewMode, cinematicMode);
-            player.sendMessage(configManager.getFormattedMessage("spectate_start_point_with_mode", 
+            player.sendMessage(configManager.getFormattedMessage("spectate_start_point_with_mode",
                 Map.of("name", point.getDescription(), "mode", modeMessage)), false);
-            
+
+            // 如果客户端有平滑能力，发送状态和参数包
+            if (hasSmoothClient) {
+                sendSmoothSpectateStart(player, session, point);
+            }
+
+            // 初始位置设置（无论是否smooth都需要）
             updateOrbitingPosition(player, session, 0);
 
             // 启动定时任务（位置更新 + ActionBar）
@@ -306,18 +346,30 @@ public class SpectateSessionManager {
                     cancelCurrentSpectation(player.getUuid());
                     return;
                 }
-                
+
                 double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
-                
-                // 更新位置
-                if (point.getRotationSpeed() > 0 || viewMode != ViewMode.ORBIT) {
-                    updateOrbitingPosition(player, session, elapsed);
+
+                // 只有非smooth客户端才需要服务端teleport
+                if (!session.isUseSmoothClient()) {
+                    if (point.getRotationSpeed() > 0 || viewMode != ViewMode.ORBIT) {
+                        updateOrbitingPosition(player, session, elapsed);
+                    }
                 }
-                
+
                 // 发送 ActionBar 信息
                 sendActionBarInfo(player, session);
-                
+
             }, 50, 50, TimeUnit.MILLISECONDS);
+
+            // 如果是smooth客户端，启动目标位置更新任务（200ms一次）
+            if (hasSmoothClient) {
+                session.targetUpdateFuture = scheduler.scheduleAtFixedRate(() -> {
+                    if (isPlayerRemoved(player)) {
+                        return;
+                    }
+                    sendTargetUpdate(player, point);
+                }, 200, 200, TimeUnit.MILLISECONDS);
+            }
         });
     }
 
@@ -821,26 +873,35 @@ public class SpectateSessionManager {
         SpectateSession session = new SpectateSession(target, viewMode, cinematicMode);
         activeSpectations.put(viewer.getUuid(), session);
 
+        // 检查客户端是否有平滑能力
+        boolean hasSmoothClient = ServerNetworkHandler.getInstance().hasSmoothCapability(viewer.getUuid());
+        session.setUseSmoothClient(hasSmoothClient);
+
         MinecraftServer server = SpectateMod.getServer();
         if (server == null) return;
 
         server.execute(() -> {
             changeGameMode(viewer, GameMode.SPECTATOR);
-            
+
             String modeMessage = getViewModeMessage(viewMode, cinematicMode);
-            viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player_with_mode", 
+            viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player_with_mode",
                 Map.of("name", target.getName().getString(), "mode", modeMessage)), false);
-            
+
+            // 如果客户端有平滑能力，发送状态和参数包
+            if (hasSmoothClient) {
+                sendSmoothSpectateStartPlayer(viewer, session, target);
+            }
+
             // 初始位置设置
             updatePlayerSpectatePosition(viewer, target, 0);
-            
+
             // 开始周期性更新位置和信息
             session.orbitFuture = scheduler.scheduleAtFixedRate(() -> {
                 if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) {
                     cancelCurrentSpectation(viewer.getUuid());
                     return;
                 }
-                
+
                 //#if MC >= 11900
                 if (!target.getWorld().equals(viewer.getWorld())) {
                 //#else
@@ -853,14 +914,28 @@ public class SpectateSessionManager {
                     //$$teleportPlayer(viewer, (ServerWorld) target.getServerWorld(), viewer.getX(), viewer.getY(), viewer.getZ(), 0, 0);
                     //#endif
                 }
-                
+
                 double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
-                updatePlayerSpectatePosition(viewer, target, elapsed);
-                
+
+                // 只有非smooth客户端才需要服务端teleport
+                if (!session.isUseSmoothClient()) {
+                    updatePlayerSpectatePosition(viewer, target, elapsed);
+                }
+
                 // 发送 ActionBar 信息
                 sendActionBarInfo(viewer, session);
-                
+
             }, 50, 50, TimeUnit.MILLISECONDS);
+
+            // 如果是smooth客户端，启动目标位置更新任务（200ms一次）
+            if (hasSmoothClient) {
+                session.targetUpdateFuture = scheduler.scheduleAtFixedRate(() -> {
+                    if (isPlayerRemoved(viewer) || isPlayerRemoved(target)) {
+                        return;
+                    }
+                    sendTargetUpdatePlayer(viewer, target, session);
+                }, 200, 200, TimeUnit.MILLISECONDS);
+            }
         });
     }
 
@@ -894,6 +969,13 @@ public class SpectateSessionManager {
      */
     public boolean stopSpectating(ServerPlayerEntity player) {
         UUID playerId = player.getUuid();
+
+        // 发送停止包给smooth客户端
+        SpectateSession session = activeSpectations.get(playerId);
+        if (session != null && session.isUseSmoothClient()) {
+            ServerNetworkHandler.getInstance().sendStatePacket(player, SpectateStatePayload.stop());
+        }
+
         cancelCurrentSpectation(playerId);
 
         PlayerOriginalState originalState = playerOriginalStates.remove(playerId);
@@ -1005,5 +1087,113 @@ public class SpectateSessionManager {
             return null;
         }
         return getViewModeMessage(session.getViewMode(), session.getCinematicMode());
+    }
+
+    // ==================== Smooth Client 相关方法 ====================
+
+    /**
+     * 发送开始旁观观察点的包给smooth客户端
+     */
+    private void sendSmoothSpectateStart(ServerPlayerEntity player, SpectateSession session, SpectatePointData point) {
+        ServerNetworkHandler handler = ServerNetworkHandler.getInstance();
+
+        // 发送状态包
+        SpectateStatePayload statePayload = SpectateStatePayload.start(
+                true,
+                null,
+                point.getPosition(),
+                point.getDimension(),
+                session.getViewMode(),
+                session.getCinematicMode()
+        );
+        handler.sendStatePacket(player, statePayload);
+
+        // 发送参数包
+        SpectateParamsPayload paramsPayload = SpectateParamsPayload.forPoint(
+                point.getDistance(),
+                point.getHeightOffset(),
+                point.getRotationSpeed(),
+                0.5, // floatingStrength
+                0.3, // floatingSpeed
+                0.95, // dampingFactor
+                0.3, // attractionFactor
+                0.0, // initialAngle
+                session.getStartTime()
+        );
+        handler.sendParamsPacket(player, paramsPayload);
+    }
+
+    /**
+     * 发送开始旁观玩家的包给smooth客户端
+     */
+    private void sendSmoothSpectateStartPlayer(ServerPlayerEntity viewer, SpectateSession session, ServerPlayerEntity target) {
+        ServerNetworkHandler handler = ServerNetworkHandler.getInstance();
+
+        // 发送状态包
+        //#if MC >= 11900
+        String dimension = target.getWorld().getRegistryKey().getValue().toString();
+        //#else
+        //$$String dimension = target.getServerWorld().getRegistryKey().getValue().toString();
+        //#endif
+
+        SpectateStatePayload statePayload = SpectateStatePayload.start(
+                false,
+                target.getUuid(),
+                null,
+                dimension,
+                session.getViewMode(),
+                session.getCinematicMode()
+        );
+        handler.sendStatePacket(viewer, statePayload);
+
+        // 发送参数包
+        SpectateParamsPayload paramsPayload = SpectateParamsPayload.defaultParams(session.getStartTime());
+        handler.sendParamsPacket(viewer, paramsPayload);
+    }
+
+    /**
+     * 发送观察点目标位置更新给smooth客户端
+     */
+    private void sendTargetUpdate(ServerPlayerEntity player, SpectatePointData point) {
+        TargetUpdatePayload payload = TargetUpdatePayload.ofStatic(
+                point.getPosition().getX() + 0.5,
+                point.getPosition().getY() + 0.5,
+                point.getPosition().getZ() + 0.5
+        );
+        ServerNetworkHandler.getInstance().sendTargetUpdatePacket(player, payload);
+    }
+
+    /**
+     * 发送玩家目标位置更新给smooth客户端
+     */
+    private void sendTargetUpdatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, SpectateSession session) {
+        // 计算目标速度
+        long now = System.currentTimeMillis();
+        double velX = 0, velY = 0, velZ = 0;
+
+        if (session.lastTargetTime > 0) {
+            double deltaTime = (now - session.lastTargetTime) / 1000.0;
+            if (deltaTime > 0 && deltaTime < 1.0) {
+                velX = (target.getX() - session.lastTargetX) / deltaTime;
+                velY = (target.getY() - session.lastTargetY) / deltaTime;
+                velZ = (target.getZ() - session.lastTargetZ) / deltaTime;
+            }
+        }
+
+        // 更新历史位置
+        session.lastTargetX = target.getX();
+        session.lastTargetY = target.getY();
+        session.lastTargetZ = target.getZ();
+        session.lastTargetTime = now;
+
+        TargetUpdatePayload payload = TargetUpdatePayload.of(
+                target.getX(),
+                target.getY(),
+                target.getZ(),
+                velX,
+                velY,
+                velZ
+        );
+        ServerNetworkHandler.getInstance().sendTargetUpdatePacket(viewer, payload);
     }
 }

@@ -1,6 +1,8 @@
 package com.spectate;
 
 import com.spectate.config.ConfigManager;
+import com.spectate.network.ServerNetworkHandler;
+import com.spectate.network.SpectateNetworking;
 import com.spectate.service.ServerSpectateManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -32,6 +34,12 @@ public class SpectateMod implements ModInitializer {
     @Override
     public void onInitialize() {
 
+        // 注册网络包
+        SpectateNetworking.registerAll();
+
+        // 注册服务端包处理器
+        ServerNetworkHandler.getInstance().registerServerReceivers();
+
         // 记录服务器实例，供其他单例使用
         ServerLifecycleEvents.SERVER_STARTED.register(srv -> {
             server = srv;
@@ -49,11 +57,15 @@ public class SpectateMod implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             // 逻辑已委托给 ServerSpectateManager 门面模式处理
             ServerSpectateManager.getInstance().onPlayerDisconnect(handler.player);
+            // 清理smooth客户端记录
+            ServerNetworkHandler.getInstance().onPlayerDisconnect(handler.player.getUuid());
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             // 逻辑已委托给 ServerSpectateManager 门面模式处理
             ServerSpectateManager.getInstance().onPlayerConnect(handler.player);
         });
+
+        LOGGER.info("Spectate mod initialized");
     }
 }
