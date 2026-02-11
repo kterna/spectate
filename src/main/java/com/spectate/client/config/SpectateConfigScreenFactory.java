@@ -112,6 +112,7 @@ public final class SpectateConfigScreenFactory {
         tiltShiftCategory.addEntry(entryBuilder
                 .startBooleanToggle(tr("option.spectate.tiltshift_enabled"), config.settings.tiltshift_enabled)
                 .setDefaultValue(false)
+                .setTooltip(tr("tooltip.spectate.tiltshift_enabled"))
                 .setSaveConsumer(value -> saveBoolean(manager, "settings.tiltshift_enabled", value))
                 .build());
 
@@ -120,6 +121,7 @@ public final class SpectateConfigScreenFactory {
                 .setDefaultValue(0.5)
                 .setMin(0.0)
                 .setMax(1.0)
+                .setTooltip(tr("tooltip.spectate.tiltshift_focus_y"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_focus_y", value))
                 .build());
 
@@ -128,6 +130,7 @@ public final class SpectateConfigScreenFactory {
                 .setDefaultValue(0.3)
                 .setMin(0.1)
                 .setMax(0.8)
+                .setTooltip(tr("tooltip.spectate.tiltshift_focus_width"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_focus_width", value))
                 .build());
 
@@ -136,6 +139,7 @@ public final class SpectateConfigScreenFactory {
                 .setDefaultValue(8.0)
                 .setMin(1.0)
                 .setMax(20.0)
+                .setTooltip(tr("tooltip.spectate.tiltshift_blur_radius"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_blur_radius", value))
                 .build());
 
@@ -144,6 +148,7 @@ public final class SpectateConfigScreenFactory {
                 .setDefaultValue(0.5)
                 .setMin(0.1)
                 .setMax(1.0)
+                .setTooltip(tr("tooltip.spectate.tiltshift_falloff"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_falloff", value))
                 .build());
 
@@ -152,6 +157,7 @@ public final class SpectateConfigScreenFactory {
                 .setDefaultValue(1.15)
                 .setMin(1.0)
                 .setMax(1.5)
+                .setTooltip(tr("tooltip.spectate.tiltshift_saturation_boost"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_saturation_boost", value))
                 .build());
 

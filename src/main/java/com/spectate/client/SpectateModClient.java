@@ -24,8 +24,8 @@ import org.lwjgl.glfw.GLFW;
 import java.util.Locale;
 
 /**
- * 客户端Mod入口
- * 负责客户端的初始化和网络包注册
+ * Client-side mod entry point.
+ * Handles client initialization and packet receivers.
  */
 @Environment(EnvType.CLIENT)
 public class SpectateModClient implements ClientModInitializer {
@@ -41,19 +41,19 @@ public class SpectateModClient implements ClientModInitializer {
     public void onInitializeClient() {
         SpectateMod.LOGGER.info("Spectate client mod initializing...");
 
-        // 注册客户端网络包接收处理器
+        // Register client packet receivers.
         registerClientPacketReceivers();
         registerClientKeyBindings();
 
-        // 注册客户端Tick事件
+        // Register end-client-tick callback.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             handleTiltShiftHotkeys(client);
             ClientSpectateManager.getInstance().onClientTick();
         });
 
-        // 注册连接事件
+        // Register connection lifecycle events.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            // 延迟发送能力声明，确保连接已建立
+            // Delay capability declaration until after the join flow is ready.
             client.execute(() -> {
                 ClientSpectateManager.getInstance().onJoinServer();
             });
@@ -90,11 +90,14 @@ public class SpectateModClient implements ClientModInitializer {
 
         while (toggleTiltShiftKey.wasPressed()) {
             if (!manager.isSpectating()) {
-                sendClientOverlayMessage(client, "移轴快捷键仅在旁观时可用");
+                sendClientOverlayMessage(client, tr("message.spectate.tiltshift.only_spectating"));
                 continue;
             }
             boolean enabled = manager.getTiltShiftSettings().toggleEnabled();
-            sendClientOverlayMessage(client, "移轴效果: " + (enabled ? "已开启" : "已关闭"));
+            sendClientOverlayMessage(client, enabled ? tr("message.spectate.tiltshift.enabled") : tr("message.spectate.tiltshift.disabled"));
+            if (enabled) {
+                sendClientOverlayMessage(client, tr("warning.spectate.tiltshift.experimental"));
+            }
         }
 
         while (decreaseTiltShiftKey.wasPressed()) {
@@ -107,19 +110,19 @@ public class SpectateModClient implements ClientModInitializer {
 
     private void handleTiltShiftAdjust(ClientSpectateManager manager, MinecraftClient client, double direction) {
         if (!manager.isSpectating()) {
-            sendClientOverlayMessage(client, "移轴快捷键仅在旁观时可用");
+            sendClientOverlayMessage(client, tr("message.spectate.tiltshift.only_spectating"));
             return;
         }
 
         TiltShiftSettings settings = manager.getTiltShiftSettings();
         if (isShiftPressed(client)) {
             double blurRadius = settings.adjustBlurRadius(direction * 0.5);
-            sendClientOverlayMessage(client, "移轴模糊强度: " + format2(blurRadius));
+            sendClientOverlayMessage(client, String.format(Locale.ROOT, tr("message.spectate.tiltshift.blur_radius"), format2(blurRadius)));
             return;
         }
 
         double focusY = settings.adjustFocusY(direction * 0.02);
-        sendClientOverlayMessage(client, "移轴焦点位置: " + format2(focusY));
+        sendClientOverlayMessage(client, String.format(Locale.ROOT, tr("message.spectate.tiltshift.focus_y"), format2(focusY)));
     }
 
     private boolean isShiftPressed(MinecraftClient client) {
@@ -132,41 +135,49 @@ public class SpectateModClient implements ClientModInitializer {
         return String.format(Locale.ROOT, "%.2f", value);
     }
 
+    private String tr(String key) {
+        //#if MC >= 11900
+        return Text.translatable(key).getString();
+        //#else
+        //$$ return new net.minecraft.text.TranslatableText(key).getString();
+        //#endif
+    }
+
     private void sendClientOverlayMessage(MinecraftClient client, String message) {
         //#if MC >= 11900
-        client.player.sendMessage(Text.literal(MESSAGE_PREFIX + message), true);
+        client.player.sendMessage(Text.literal(MESSAGE_PREFIX + message), false);
         //#else
-        //$$ client.player.sendMessage(new LiteralText(MESSAGE_PREFIX + message), true);
+        //$$ client.player.sendMessage(new LiteralText(MESSAGE_PREFIX + message), false);
         //#endif
     }
 
     /**
-     * 注册客户端接收服务端包的处理器
+     * Register handlers for packets sent by the server.
      */
     private void registerClientPacketReceivers() {
         //#if MC >= 12005
-        // 处理旁观状态包
+        // Spectate state updates
         ClientPlayNetworking.registerGlobalReceiver(SpectateStatePayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientSpectateManager.getInstance().handleStatePayload(payload);
             });
         });
 
-        // 处理参数包
+        // Spectate param updates
         ClientPlayNetworking.registerGlobalReceiver(SpectateParamsPayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientSpectateManager.getInstance().handleParamsPayload(payload);
             });
         });
 
-        // 处理目标更新包
+        // Target updates
         ClientPlayNetworking.registerGlobalReceiver(TargetUpdatePayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientSpectateManager.getInstance().handleTargetUpdate(payload);
             });
         });
         //#else
-        //$$// 旧版本使用不同的API
+        //$$// Legacy API path for older versions
         //$$ClientPlayNetworking.registerGlobalReceiver(SpectateNetworking.STATE_PACKET_ID, (client, handler, buf, responseSender) -> {
         //$$    SpectateStatePayload payload = SpectateStatePayload.read(buf);
         //$$    client.execute(() -> {

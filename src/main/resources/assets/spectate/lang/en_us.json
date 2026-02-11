@@ -24,6 +24,18 @@
   "option.spectate.tiltshift_focus_width": "Focus Width",
   "option.spectate.tiltshift_blur_radius": "Blur Radius",
   "option.spectate.tiltshift_falloff": "Falloff",
-  "option.spectate.tiltshift_saturation_boost": "Saturation Boost"
+  "option.spectate.tiltshift_saturation_boost": "Saturation Boost",
+  "message.spectate.tiltshift.enabled": "Tilt-Shift: Enabled",
+  "message.spectate.tiltshift.disabled": "Tilt-Shift: Disabled",
+  "message.spectate.tiltshift.only_spectating": "Tilt-Shift hotkeys are available only while spectating",
+  "message.spectate.tiltshift.blur_radius": "Tilt-Shift Blur Radius: %s",
+  "message.spectate.tiltshift.focus_y": "Tilt-Shift Focus Y: %s",
+  "tooltip.spectate.tiltshift_enabled": "Enable post-process tilt-shift while spectating. Works only on clients with the mod installed. Warning: this feature is experimental and may have unknown issues.",
+  "tooltip.spectate.tiltshift_focus_y": "Vertical position of the clear focus band. 0.0 = top, 1.0 = bottom.",
+  "tooltip.spectate.tiltshift_focus_width": "Width of the clear focus band. Smaller = thinner in-focus strip.",
+  "tooltip.spectate.tiltshift_blur_radius": "Blur strength outside the focus band. Higher values look more cinematic.",
+  "tooltip.spectate.tiltshift_falloff": "How soft the transition is between clear and blurred areas.",
+  "tooltip.spectate.tiltshift_saturation_boost": "Color saturation multiplier after blur. 1.0 means unchanged.",
+  "warning.spectate.tiltshift.experimental": "Warning: Tilt-shift is experimental and may have unknown issues."
 }
 

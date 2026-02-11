@@ -24,5 +24,17 @@
   "option.spectate.tiltshift_focus_width": "焦点宽度",
   "option.spectate.tiltshift_blur_radius": "模糊半径",
   "option.spectate.tiltshift_falloff": "过渡衰减",
-  "option.spectate.tiltshift_saturation_boost": "饱和度增强"
+  "option.spectate.tiltshift_saturation_boost": "饱和度增强",
+  "message.spectate.tiltshift.enabled": "移轴效果: 已开启",
+  "message.spectate.tiltshift.disabled": "移轴效果: 已关闭",
+  "message.spectate.tiltshift.only_spectating": "移轴快捷键仅在旁观时可用",
+  "message.spectate.tiltshift.blur_radius": "移轴模糊强度: %s",
+  "message.spectate.tiltshift.focus_y": "移轴焦点位置: %s",
+  "tooltip.spectate.tiltshift_enabled": "旁观时启用移轴后处理效果。仅对安装了该客户端模组的玩家生效。警告：该功能为实验功能，可能存在未知问题。",
+  "tooltip.spectate.tiltshift_focus_y": "清晰焦带的纵向位置。0.0 在顶部，1.0 在底部。",
+  "tooltip.spectate.tiltshift_focus_width": "清晰焦带的宽度。越小越窄，越像微缩景观效果。",
+  "tooltip.spectate.tiltshift_blur_radius": "焦带外的模糊强度。数值越大，背景和前景越虚化。",
+  "tooltip.spectate.tiltshift_falloff": "清晰区与模糊区之间的过渡柔和程度。",
+  "tooltip.spectate.tiltshift_saturation_boost": "模糊后颜色饱和度倍率。1.0 表示不增强。",
+  "warning.spectate.tiltshift.experimental": "警告：移轴效果为实验功能，可能存在未知问题。"
 }

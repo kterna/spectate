@@ -1,0 +1,50 @@
+{
+  "targets": [
+    "swap"
+  ],
+  "passes": [
+    {
+      "name": "spectate_tiltshift",
+      "intarget": "minecraft:main",
+      "outtarget": "swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {
+          "name": "FocusY",
+          "values": [
+            0.5
+          ]
+        },
+        {
+          "name": "FocusWidth",
+          "values": [
+            0.3
+          ]
+        },
+        {
+          "name": "BlurRadius",
+          "values": [
+            8.0
+          ]
+        },
+        {
+          "name": "Falloff",
+          "values": [
+            0.5
+          ]
+        },
+        {
+          "name": "SaturationBoost",
+          "values": [
+            1.15
+          ]
+        }
+      ]
+    },
+    {
+      "name": "blit",
+      "intarget": "swap",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}
