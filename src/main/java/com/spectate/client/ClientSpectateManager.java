@@ -199,6 +199,8 @@ public class ClientSpectateManager {
      */
     public void reloadClientConfig() {
         tiltShiftSettings.reloadFromConfig();
+        // 将最新玩家配置重新上报给服务端，支持在线热更新玩家级参数。
+        sendCapabilityPacket();
     }
 
     /**
