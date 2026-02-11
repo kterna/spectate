@@ -37,12 +37,15 @@ public class ClientSpectateManager {
 
     // 平滑摄像机控制器
     private final SmoothCameraController cameraController;
+    // 客户端移轴参数控制
+    private final TiltShiftSettings tiltShiftSettings;
 
     // 上一帧时间（用于计算deltaTime）
     private long lastFrameTime = System.currentTimeMillis();
 
     private ClientSpectateManager() {
         this.cameraController = new SmoothCameraController();
+        this.tiltShiftSettings = new TiltShiftSettings();
     }
 
     /**
@@ -192,6 +195,13 @@ public class ClientSpectateManager {
     }
 
     /**
+     * 客户端配置变更后（例如设置页保存）刷新本地参数缓存。
+     */
+    public void reloadClientConfig() {
+        tiltShiftSettings.reloadFromConfig();
+    }
+
+    /**
      * 发送能力声明包
      */
     private void sendCapabilityPacket() {
@@ -234,5 +244,9 @@ public class ClientSpectateManager {
 
     public ViewMode getViewMode() {
         return viewMode;
+    }
+
+    public TiltShiftSettings getTiltShiftSettings() {
+        return tiltShiftSettings;
     }
 }

@@ -1,0 +1,64 @@
+{
+  "targets": {
+    "swap": {}
+  },
+  "passes": [
+    {
+      "vertex_shader": "minecraft:post/blit",
+      "fragment_shader": "spectate:post/tiltshift",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "minecraft:main"
+        }
+      ],
+      "output": "swap",
+      "uniforms": [
+        {
+          "name": "FocusY",
+          "type": "float",
+          "values": [0.5]
+        },
+        {
+          "name": "FocusWidth",
+          "type": "float",
+          "values": [0.3]
+        },
+        {
+          "name": "BlurRadius",
+          "type": "float",
+          "values": [8.0]
+        },
+        {
+          "name": "Falloff",
+          "type": "float",
+          "values": [0.5]
+        },
+        {
+          "name": "SaturationBoost",
+          "type": "float",
+          "values": [1.15]
+        }
+      ]
+    },
+    {
+      "vertex_shader": "minecraft:post/blit",
+      "fragment_shader": "minecraft:post/blit",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "swap"
+        }
+      ],
+      "uniforms": [
+        {
+          "name": "ColorModulate",
+          "type": "vec4",
+          "values": [1.0, 1.0, 1.0, 1.0]
+        }
+      ],
+      "output": "minecraft:main"
+    }
+  ]
+}
+

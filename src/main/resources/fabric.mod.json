@@ -15,6 +15,9 @@
     ],
     "client": [
       "com.spectate.client.SpectateModClient"
+    ],
+    "modmenu": [
+      "com.spectate.client.config.SpectateModMenuApi"
     ]
   },
   "depends": {

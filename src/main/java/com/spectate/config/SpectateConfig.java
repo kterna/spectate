@@ -48,6 +48,24 @@ public class SpectateConfig {
         
         /** 浮游视角预测因子，控制对目标移动的预测程度 (0.5-5.0) */
         public double floating_prediction_factor = 2.0;
+
+        /** 是否启用移轴效果（仅在客户端旁观时生效） */
+        public boolean tiltshift_enabled = false;
+
+        /** 焦点Y位置，屏幕比例 (0.0-1.0) */
+        public double tiltshift_focus_y = 0.5;
+
+        /** 清晰带宽度 (0.1-0.8) */
+        public double tiltshift_focus_width = 0.3;
+
+        /** 模糊半径 (1.0-20.0) */
+        public double tiltshift_blur_radius = 8.0;
+
+        /** 过渡平滑度 (0.1-1.0) */
+        public double tiltshift_falloff = 0.5;
+
+        /** 饱和度增强 (1.0-1.5) */
+        public double tiltshift_saturation_boost = 1.15;
     }
 
     public static class Messages {

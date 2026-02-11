@@ -23,6 +23,12 @@ repositories {
     maven {
         url 'https://www.cursemaven.com'
     }
+    maven {
+        url 'https://maven.shedaniel.me/'
+    }
+    maven {
+        url 'https://maven.terraformersmc.com/releases/'
+    }
 }
 
 // https://github.com/FabricMC/fabric-loader/issues/783
@@ -40,6 +46,12 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
     // Add SLF4J for logging, which is not included by default in older versions
     modImplementation "org.slf4j:slf4j-api:1.7.32"
+
+    // Optional client-only UI deps (config screen + ModMenu entry)
+    modCompileOnly "me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}"
+    modLocalRuntime "me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}"
+    modCompileOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
+    modLocalRuntime "com.terraformersmc:modmenu:${project.mod_menu_version}"
     // 自己的模组以来也写在这里
 }
 
