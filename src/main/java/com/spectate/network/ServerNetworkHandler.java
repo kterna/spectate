@@ -37,10 +37,37 @@ public class ServerNetworkHandler {
     public static class ClientCapability {
         public final boolean hasSmoothSpectate;
         public final int protocolVersion;
+        public final double spectateDistance;
+        public final double spectateHeightOffset;
+        public final double spectateRotationSpeed;
+        public final double floatingStrength;
+        public final double floatingSpeed;
+        public final double floatingDampingFactor;
+        public final double floatingAttractionFactor;
 
-        public ClientCapability(boolean hasSmoothSpectate, int protocolVersion) {
+        public ClientCapability(boolean hasSmoothSpectate, int protocolVersion,
+                                double spectateDistance, double spectateHeightOffset, double spectateRotationSpeed,
+                                double floatingStrength, double floatingSpeed, double floatingDampingFactor,
+                                double floatingAttractionFactor) {
             this.hasSmoothSpectate = hasSmoothSpectate;
             this.protocolVersion = protocolVersion;
+            this.spectateDistance = spectateDistance;
+            this.spectateHeightOffset = spectateHeightOffset;
+            this.spectateRotationSpeed = spectateRotationSpeed;
+            this.floatingStrength = floatingStrength;
+            this.floatingSpeed = floatingSpeed;
+            this.floatingDampingFactor = floatingDampingFactor;
+            this.floatingAttractionFactor = floatingAttractionFactor;
+        }
+
+        public boolean hasPlayerRuntimeConfig() {
+            return Double.isFinite(spectateDistance)
+                    && Double.isFinite(spectateHeightOffset)
+                    && Double.isFinite(spectateRotationSpeed)
+                    && Double.isFinite(floatingStrength)
+                    && Double.isFinite(floatingSpeed)
+                    && Double.isFinite(floatingDampingFactor)
+                    && Double.isFinite(floatingAttractionFactor);
         }
     }
 
@@ -72,9 +99,24 @@ public class ServerNetworkHandler {
         UUID playerId = player.getUuid();
 
         if (payload.hasSmoothSpectate()) {
-            smoothClients.put(playerId, new ClientCapability(true, payload.protocolVersion()));
-            SpectateMod.LOGGER.info("Player {} has smooth spectate capability (protocol version: {})",
-                    player.getName().getString(), payload.protocolVersion());
+            ClientCapability capability = new ClientCapability(
+                    true,
+                    payload.protocolVersion(),
+                    payload.spectateDistance(),
+                    payload.spectateHeightOffset(),
+                    payload.spectateRotationSpeed(),
+                    payload.floatingStrength(),
+                    payload.floatingSpeed(),
+                    payload.floatingDampingFactor(),
+                    payload.floatingAttractionFactor()
+            );
+            smoothClients.put(playerId, capability);
+            SpectateMod.LOGGER.info(
+                    "Player {} has smooth spectate capability (protocol version: {}, playerConfig={})",
+                    player.getName().getString(),
+                    payload.protocolVersion(),
+                    capability.hasPlayerRuntimeConfig()
+            );
         } else {
             smoothClients.remove(playerId);
         }
@@ -100,6 +142,13 @@ public class ServerNetworkHandler {
      */
     public Set<UUID> getSmoothClientIds() {
         return smoothClients.keySet();
+    }
+
+    /**
+     * 获取玩家能力详情（用于读取玩家级运行参数）。
+     */
+    public ClientCapability getClientCapability(UUID playerId) {
+        return smoothClients.get(playerId);
     }
 
     /**

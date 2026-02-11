@@ -2,6 +2,7 @@ package com.spectate.service;
 
 import com.spectate.SpectateMod;
 import com.spectate.config.ConfigManager;
+import com.spectate.config.SpectateConfig;
 import com.spectate.data.SpectatePointData;
 import com.spectate.data.SpectateStatsManager;
 import com.spectate.network.ServerNetworkHandler;
@@ -31,6 +32,8 @@ public class SpectateSessionManager {
 
     private static final SpectateSessionManager INSTANCE = new SpectateSessionManager();
     public static SpectateSessionManager getInstance() { return INSTANCE; }
+    private static final long SMOOTH_PLAYER_TARGET_UPDATE_INTERVAL_MS = 50L;
+    private static final long SMOOTH_POINT_TARGET_UPDATE_INTERVAL_MS = 200L;
 
     private final Map<UUID, PlayerOriginalState> playerOriginalStates = new ConcurrentHashMap<>();
     private final Map<UUID, SpectateSession> activeSpectations = new ConcurrentHashMap<>();
@@ -39,6 +42,77 @@ public class SpectateSessionManager {
 
     private SpectateSessionManager() {
         this.scheduler = CycleService.getInstance().getScheduler();
+    }
+
+    /**
+     * 运行时摄像机参数。
+     * 优先来自客户端玩家级配置；无配置时回退全局配置。
+     */
+    private static class SpectateRuntimeConfig {
+        private final double distance;
+        private final double heightOffset;
+        private final double rotationSpeed;
+        private final double floatingStrength;
+        private final double floatingSpeed;
+        private final double dampingFactor;
+        private final double attractionFactor;
+
+        private SpectateRuntimeConfig(double distance, double heightOffset, double rotationSpeed,
+                                      double floatingStrength, double floatingSpeed, double dampingFactor,
+                                      double attractionFactor) {
+            this.distance = distance;
+            this.heightOffset = heightOffset;
+            this.rotationSpeed = rotationSpeed;
+            this.floatingStrength = floatingStrength;
+            this.floatingSpeed = floatingSpeed;
+            this.dampingFactor = dampingFactor;
+            this.attractionFactor = attractionFactor;
+        }
+    }
+
+    private SpectateRuntimeConfig getGlobalRuntimeConfig() {
+        SpectateConfig.Settings settings = configManager.getConfig().settings;
+        return new SpectateRuntimeConfig(
+                clampOrFallback(settings.spectate_distance, 1.0, 128.0, 20.0),
+                clampOrFallback(settings.spectate_height_offset, -64.0, 128.0, 5.0),
+                clampOrFallback(settings.spectate_rotation_speed, 0.0, 360.0, 1.0),
+                clampOrFallback(settings.floating_strength, 0.1, 1.0, 0.5),
+                clampOrFallback(settings.floating_speed, 0.1, 2.0, 0.3),
+                clampOrFallback(settings.floating_damping_factor, 0.1, 1.0, 0.95),
+                clampOrFallback(settings.floating_attraction_factor, 0.1, 1.0, 0.3)
+        );
+    }
+
+    private SpectateRuntimeConfig getEffectiveRuntimeConfig(ServerPlayerEntity viewer) {
+        SpectateRuntimeConfig globalConfig = getGlobalRuntimeConfig();
+        ServerNetworkHandler.ClientCapability capability =
+                ServerNetworkHandler.getInstance().getClientCapability(viewer.getUuid());
+        if (capability == null || !capability.hasPlayerRuntimeConfig()) {
+            return globalConfig;
+        }
+
+        return new SpectateRuntimeConfig(
+                clampOrFallback(capability.spectateDistance, 1.0, 128.0, globalConfig.distance),
+                clampOrFallback(capability.spectateHeightOffset, -64.0, 128.0, globalConfig.heightOffset),
+                clampOrFallback(capability.spectateRotationSpeed, 0.0, 360.0, globalConfig.rotationSpeed),
+                clampOrFallback(capability.floatingStrength, 0.1, 1.0, globalConfig.floatingStrength),
+                clampOrFallback(capability.floatingSpeed, 0.1, 2.0, globalConfig.floatingSpeed),
+                clampOrFallback(capability.floatingDampingFactor, 0.1, 1.0, globalConfig.dampingFactor),
+                clampOrFallback(capability.floatingAttractionFactor, 0.1, 1.0, globalConfig.attractionFactor)
+        );
+    }
+
+    private static double clampOrFallback(double value, double min, double max, double fallback) {
+        if (!Double.isFinite(value)) {
+            return fallback;
+        }
+        if (value < min) {
+            return min;
+        }
+        if (value > max) {
+            return max;
+        }
+        return value;
     }
 
 
@@ -80,6 +154,8 @@ public class SpectateSessionManager {
      */
     public static void teleportPlayer(ServerPlayerEntity player, ServerWorld world, double x, double y, double z, float yaw, float pitch) {
         //#if MC == 12100
+        //$$player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch);
+        //#elseif MC == 12101
         //$$player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch);
         //#elseif MC >= 11900
         player.teleport(world, x, y, z, Collections.emptySet(), yaw, pitch, false);
@@ -359,7 +435,7 @@ public class SpectateSessionManager {
                         return;
                     }
                     sendTargetUpdate(player, point);
-                }, 200, 200, TimeUnit.MILLISECONDS);
+                }, 0, SMOOTH_POINT_TARGET_UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
             }
         });
     }
@@ -662,10 +738,11 @@ public class SpectateSessionManager {
     }
 
     private void updateOrbitPlayerPosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds) {
-        // 默认的玩家旁观参数
-        double distance = 8.0;  // 默认距离
-        double heightOffset = 2.0;  // 默认高度偏移
-        double rotationSpeed = 5.0;  // 默认每秒旋转5度
+        // 无客户端模组时，使用服务端全局配置。
+        SpectateRuntimeConfig runtimeConfig = getGlobalRuntimeConfig();
+        double distance = runtimeConfig.distance;
+        double heightOffset = runtimeConfig.heightOffset;
+        double rotationSpeed = runtimeConfig.rotationSpeed;
         
         double angleRad = 0;
         if (rotationSpeed > 0) {
@@ -925,7 +1002,7 @@ public class SpectateSessionManager {
                         return;
                     }
                     sendTargetUpdatePlayer(viewer, target, session);
-                }, 200, 200, TimeUnit.MILLISECONDS);
+                }, 0, SMOOTH_PLAYER_TARGET_UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
             }
         });
     }
@@ -1088,6 +1165,7 @@ public class SpectateSessionManager {
      */
     private void sendSmoothSpectateStart(ServerPlayerEntity player, SpectateSession session, SpectatePointData point) {
         ServerNetworkHandler handler = ServerNetworkHandler.getInstance();
+        SpectateRuntimeConfig runtimeConfig = getEffectiveRuntimeConfig(player);
 
         // 发送状态包
         SpectateStatePayload statePayload = SpectateStatePayload.start(
@@ -1104,10 +1182,10 @@ public class SpectateSessionManager {
                 point.getDistance(),
                 point.getHeightOffset(),
                 point.getRotationSpeed(),
-                0.5, // floatingStrength
-                0.3, // floatingSpeed
-                0.95, // dampingFactor
-                0.3, // attractionFactor
+                runtimeConfig.floatingStrength,
+                runtimeConfig.floatingSpeed,
+                runtimeConfig.dampingFactor,
+                runtimeConfig.attractionFactor,
                 0.0, // initialAngle
                 session.getStartTime()
         );
@@ -1119,6 +1197,7 @@ public class SpectateSessionManager {
      */
     private void sendSmoothSpectateStartPlayer(ServerPlayerEntity viewer, SpectateSession session, ServerPlayerEntity target) {
         ServerNetworkHandler handler = ServerNetworkHandler.getInstance();
+        SpectateRuntimeConfig runtimeConfig = getEffectiveRuntimeConfig(viewer);
 
         // 发送状态包
         //#if MC >= 11900
@@ -1137,7 +1216,17 @@ public class SpectateSessionManager {
         handler.sendStatePacket(viewer, statePayload);
 
         // 发送参数包
-        SpectateParamsPayload paramsPayload = SpectateParamsPayload.defaultParams(session.getStartTime());
+        SpectateParamsPayload paramsPayload = SpectateParamsPayload.forPoint(
+                runtimeConfig.distance,
+                runtimeConfig.heightOffset,
+                runtimeConfig.rotationSpeed,
+                runtimeConfig.floatingStrength,
+                runtimeConfig.floatingSpeed,
+                runtimeConfig.dampingFactor,
+                runtimeConfig.attractionFactor,
+                0.0,
+                session.getStartTime()
+        );
         handler.sendParamsPacket(viewer, paramsPayload);
     }
 

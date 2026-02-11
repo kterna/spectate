@@ -1,6 +1,7 @@
 package com.spectate.client;
 
 import com.spectate.SpectateMod;
+import com.spectate.client.config.SpectateConfigScreenFactory;
 import com.spectate.network.SpectateNetworking;
 import com.spectate.network.packet.SpectateParamsPayload;
 import com.spectate.network.packet.SpectateStatePayload;
@@ -9,31 +10,48 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.text.Text;
+//#if MC < 11900
+//$$ import net.minecraft.text.LiteralText;
+//#endif
+import org.lwjgl.glfw.GLFW;
 
 /**
- * 客户端Mod入口
- * 负责客户端的初始化和网络包注册
+ * Client-side mod entry point.
+ * Handles client initialization and packet receivers.
  */
 @Environment(EnvType.CLIENT)
 public class SpectateModClient implements ClientModInitializer {
+
+    private static final String KEY_CATEGORY = "key.categories.spectate";
+    private static final String MESSAGE_PREFIX = "[Spectate] ";
+
+    private KeyBinding openConfigKey;
+    private KeyBinding toggleTiltShiftKey;
 
     @Override
     public void onInitializeClient() {
         SpectateMod.LOGGER.info("Spectate client mod initializing...");
 
-        // 注册客户端网络包接收处理器
+        // Register client packet receivers.
         registerClientPacketReceivers();
+        registerClientKeyBindings();
 
-        // 注册客户端Tick事件
+        // Register end-client-tick callback.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            handleTiltShiftHotkeys(client);
             ClientSpectateManager.getInstance().onClientTick();
         });
 
-        // 注册连接事件
+        // Register connection lifecycle events.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            // 延迟发送能力声明，确保连接已建立
+            // Delay capability declaration until after the join flow is ready.
             client.execute(() -> {
                 ClientSpectateManager.getInstance().onJoinServer();
             });
@@ -46,33 +64,97 @@ public class SpectateModClient implements ClientModInitializer {
         SpectateMod.LOGGER.info("Spectate client mod initialized");
     }
 
+    private void registerClientKeyBindings() {
+        this.openConfigKey = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding("key.spectate.open_config", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F9, KEY_CATEGORY)
+        );
+        this.toggleTiltShiftKey = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding("key.spectate.tiltshift.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, KEY_CATEGORY)
+        );
+    }
+
+    private void handleTiltShiftHotkeys(MinecraftClient client) {
+        if (client.currentScreen != null) {
+            return;
+        }
+        if (openConfigKey == null || toggleTiltShiftKey == null) {
+            return;
+        }
+
+        while (openConfigKey.wasPressed()) {
+            openConfigScreen(client);
+        }
+
+        if (client.player == null) {
+            return;
+        }
+
+        ClientSpectateManager manager = ClientSpectateManager.getInstance();
+
+        while (toggleTiltShiftKey.wasPressed()) {
+            if (!manager.isSpectating()) {
+                sendClientOverlayMessage(client, tr("message.spectate.tiltshift.only_spectating"));
+                continue;
+            }
+            boolean enabled = manager.getTiltShiftSettings().toggleEnabled();
+            sendClientOverlayMessage(client, enabled ? tr("message.spectate.tiltshift.enabled") : tr("message.spectate.tiltshift.disabled"));
+            if (enabled) {
+                sendClientOverlayMessage(client, tr("warning.spectate.tiltshift.experimental"));
+            }
+        }
+    }
+
+    private void openConfigScreen(MinecraftClient client) {
+        //#if MC >= 11700
+        client.setScreen(SpectateConfigScreenFactory.create(client.currentScreen));
+        //#else
+        //$$ client.openScreen(SpectateConfigScreenFactory.create(client.currentScreen));
+        //#endif
+    }
+
+    private String tr(String key) {
+        //#if MC >= 11900
+        return Text.translatable(key).getString();
+        //#else
+        //$$ return new net.minecraft.text.TranslatableText(key).getString();
+        //#endif
+    }
+
+    private void sendClientOverlayMessage(MinecraftClient client, String message) {
+        //#if MC >= 11900
+        client.player.sendMessage(Text.literal(MESSAGE_PREFIX + message), false);
+        //#else
+        //$$ client.player.sendMessage(new LiteralText(MESSAGE_PREFIX + message), false);
+        //#endif
+    }
+
     /**
-     * 注册客户端接收服务端包的处理器
+     * Register handlers for packets sent by the server.
      */
     private void registerClientPacketReceivers() {
         //#if MC >= 12005
-        // 处理旁观状态包
+        // Spectate state updates
         ClientPlayNetworking.registerGlobalReceiver(SpectateStatePayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientSpectateManager.getInstance().handleStatePayload(payload);
             });
         });
 
-        // 处理参数包
+        // Spectate param updates
         ClientPlayNetworking.registerGlobalReceiver(SpectateParamsPayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientSpectateManager.getInstance().handleParamsPayload(payload);
             });
         });
 
-        // 处理目标更新包
+        // Target updates
         ClientPlayNetworking.registerGlobalReceiver(TargetUpdatePayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientSpectateManager.getInstance().handleTargetUpdate(payload);
             });
         });
         //#else
-        //$$// 旧版本使用不同的API
+        //$$// Legacy API path for older versions
         //$$ClientPlayNetworking.registerGlobalReceiver(SpectateNetworking.STATE_PACKET_ID, (client, handler, buf, responseSender) -> {
         //$$    SpectateStatePayload payload = SpectateStatePayload.read(buf);
         //$$    client.execute(() -> {
