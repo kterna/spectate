@@ -32,6 +32,8 @@ public class SpectateSessionManager {
 
     private static final SpectateSessionManager INSTANCE = new SpectateSessionManager();
     public static SpectateSessionManager getInstance() { return INSTANCE; }
+    private static final long SMOOTH_PLAYER_TARGET_UPDATE_INTERVAL_MS = 50L;
+    private static final long SMOOTH_POINT_TARGET_UPDATE_INTERVAL_MS = 200L;
 
     private final Map<UUID, PlayerOriginalState> playerOriginalStates = new ConcurrentHashMap<>();
     private final Map<UUID, SpectateSession> activeSpectations = new ConcurrentHashMap<>();
@@ -433,7 +435,7 @@ public class SpectateSessionManager {
                         return;
                     }
                     sendTargetUpdate(player, point);
-                }, 200, 200, TimeUnit.MILLISECONDS);
+                }, 0, SMOOTH_POINT_TARGET_UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
             }
         });
     }
@@ -1000,7 +1002,7 @@ public class SpectateSessionManager {
                         return;
                     }
                     sendTargetUpdatePlayer(viewer, target, session);
-                }, 200, 200, TimeUnit.MILLISECONDS);
+                }, 0, SMOOTH_PLAYER_TARGET_UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
             }
         });
     }

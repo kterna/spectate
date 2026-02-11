@@ -30,93 +30,93 @@ public final class SpectateConfigScreenFactory {
 
         ConfigBuilder builder = ConfigBuilder.create()
                 .setParentScreen(parent)
-                .setTitle(literal("Spectate Config"));
+                .setTitle(tr("screen.spectate.config.title"));
         ConfigEntryBuilder entryBuilder = builder.entryBuilder();
 
-        ConfigCategory generalCategory = builder.getOrCreateCategory(literal("General"));
-        ConfigCategory floatingCategory = builder.getOrCreateCategory(literal("Floating Camera"));
-        ConfigCategory tiltShiftCategory = builder.getOrCreateCategory(literal("Tilt-Shift"));
+        ConfigCategory generalCategory = builder.getOrCreateCategory(tr("category.spectate.general"));
+        ConfigCategory floatingCategory = builder.getOrCreateCategory(tr("category.spectate.floating"));
+        ConfigCategory tiltShiftCategory = builder.getOrCreateCategory(tr("category.spectate.tiltshift"));
 
         generalCategory.addEntry(entryBuilder
-                .startIntField(literal("Cycle Interval Seconds"), config.settings.cycle_interval_seconds)
+                .startIntField(tr("option.spectate.cycle_interval_seconds"), config.settings.cycle_interval_seconds)
                 .setDefaultValue(60)
                 .setSaveConsumer(value -> saveInt(manager, "settings.cycle_interval_seconds", value))
                 .build());
 
         generalCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Spectate Distance"), config.settings.spectate_distance)
+                .startDoubleField(tr("option.spectate.spectate_distance"), config.settings.spectate_distance)
                 .setDefaultValue(20.0)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.spectate_distance", value))
                 .build());
 
         generalCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Spectate Height Offset"), config.settings.spectate_height_offset)
+                .startDoubleField(tr("option.spectate.spectate_height_offset"), config.settings.spectate_height_offset)
                 .setDefaultValue(5.0)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.spectate_height_offset", value))
                 .build());
 
         generalCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Spectate Rotation Speed"), config.settings.spectate_rotation_speed)
+                .startDoubleField(tr("option.spectate.spectate_rotation_speed"), config.settings.spectate_rotation_speed)
                 .setDefaultValue(1.0)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.spectate_rotation_speed", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Strength"), config.settings.floating_strength)
+                .startDoubleField(tr("option.spectate.floating_strength"), config.settings.floating_strength)
                 .setDefaultValue(0.5)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_strength", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Speed"), config.settings.floating_speed)
+                .startDoubleField(tr("option.spectate.floating_speed"), config.settings.floating_speed)
                 .setDefaultValue(0.3)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_speed", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Orbit Radius"), config.settings.floating_orbit_radius)
+                .startDoubleField(tr("option.spectate.floating_orbit_radius"), config.settings.floating_orbit_radius)
                 .setDefaultValue(8.0)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_orbit_radius", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Height Variation"), config.settings.floating_height_variation)
+                .startDoubleField(tr("option.spectate.floating_height_variation"), config.settings.floating_height_variation)
                 .setDefaultValue(0.8)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_height_variation", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Breathing Frequency"), config.settings.floating_breathing_frequency)
+                .startDoubleField(tr("option.spectate.floating_breathing_frequency"), config.settings.floating_breathing_frequency)
                 .setDefaultValue(0.5)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_breathing_frequency", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Damping Factor"), config.settings.floating_damping_factor)
+                .startDoubleField(tr("option.spectate.floating_damping_factor"), config.settings.floating_damping_factor)
                 .setDefaultValue(0.95)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_damping_factor", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Attraction Factor"), config.settings.floating_attraction_factor)
+                .startDoubleField(tr("option.spectate.floating_attraction_factor"), config.settings.floating_attraction_factor)
                 .setDefaultValue(0.3)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_attraction_factor", value))
                 .build());
 
         floatingCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Floating Prediction Factor"), config.settings.floating_prediction_factor)
+                .startDoubleField(tr("option.spectate.floating_prediction_factor"), config.settings.floating_prediction_factor)
                 .setDefaultValue(2.0)
                 .setSaveConsumer(value -> saveDouble(manager, "settings.floating_prediction_factor", value))
                 .build());
 
         tiltShiftCategory.addEntry(entryBuilder
-                .startBooleanToggle(literal("Enable Tilt-Shift"), config.settings.tiltshift_enabled)
+                .startBooleanToggle(tr("option.spectate.tiltshift_enabled"), config.settings.tiltshift_enabled)
                 .setDefaultValue(false)
                 .setSaveConsumer(value -> saveBoolean(manager, "settings.tiltshift_enabled", value))
                 .build());
 
         tiltShiftCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Focus Y"), config.settings.tiltshift_focus_y)
+                .startDoubleField(tr("option.spectate.tiltshift_focus_y"), config.settings.tiltshift_focus_y)
                 .setDefaultValue(0.5)
                 .setMin(0.0)
                 .setMax(1.0)
@@ -124,7 +124,7 @@ public final class SpectateConfigScreenFactory {
                 .build());
 
         tiltShiftCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Focus Width"), config.settings.tiltshift_focus_width)
+                .startDoubleField(tr("option.spectate.tiltshift_focus_width"), config.settings.tiltshift_focus_width)
                 .setDefaultValue(0.3)
                 .setMin(0.1)
                 .setMax(0.8)
@@ -132,7 +132,7 @@ public final class SpectateConfigScreenFactory {
                 .build());
 
         tiltShiftCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Blur Radius"), config.settings.tiltshift_blur_radius)
+                .startDoubleField(tr("option.spectate.tiltshift_blur_radius"), config.settings.tiltshift_blur_radius)
                 .setDefaultValue(8.0)
                 .setMin(1.0)
                 .setMax(20.0)
@@ -140,7 +140,7 @@ public final class SpectateConfigScreenFactory {
                 .build());
 
         tiltShiftCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Falloff"), config.settings.tiltshift_falloff)
+                .startDoubleField(tr("option.spectate.tiltshift_falloff"), config.settings.tiltshift_falloff)
                 .setDefaultValue(0.5)
                 .setMin(0.1)
                 .setMax(1.0)
@@ -148,7 +148,7 @@ public final class SpectateConfigScreenFactory {
                 .build());
 
         tiltShiftCategory.addEntry(entryBuilder
-                .startDoubleField(literal("Saturation Boost"), config.settings.tiltshift_saturation_boost)
+                .startDoubleField(tr("option.spectate.tiltshift_saturation_boost"), config.settings.tiltshift_saturation_boost)
                 .setDefaultValue(1.15)
                 .setMin(1.0)
                 .setMax(1.5)
@@ -182,11 +182,11 @@ public final class SpectateConfigScreenFactory {
         ClientSpectateManager.getInstance().reloadClientConfig();
     }
 
-    private static Text literal(String value) {
+    private static Text tr(String key) {
         //#if MC >= 11900
-        return Text.literal(value);
+        return Text.translatable(key);
         //#else
-        //$$ return new LiteralText(value);
+        //$$ return new net.minecraft.text.TranslatableText(key);
         //#endif
     }
 }

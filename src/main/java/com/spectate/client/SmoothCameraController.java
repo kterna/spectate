@@ -5,49 +5,54 @@ import com.spectate.service.ViewMode;
 import net.minecraft.util.math.Vec3d;
 
 /**
- * 平滑摄像机控制器
- * 复用 FloatingCamera 物理算法，在客户端每帧计算摄像机位置
+ * Client-side smooth camera controller.
+ * Computes camera position each frame from server target updates.
  */
 public class SmoothCameraController {
+    private static final double TARGET_POSITION_SMOOTH_TIME_SEC = 0.10;
+    private static final double TARGET_VELOCITY_SMOOTH_TIME_SEC = 0.12;
+    private static final double MAX_PREDICTION_AHEAD_SEC = 0.20;
 
-    // 摄像机参数
+    // Camera params
     private double distance = 8.0;
     private double heightOffset = 2.0;
     private double rotationSpeed = 5.0;
 
-    // FloatingCamera 参数
+    // Floating mode params
     private double floatingStrength = 0.5;
     private double floatingSpeed = 0.3;
     private double dampingFactor = 0.95;
     private double attractionFactor = 0.3;
 
-    // 状态变量
+    // State
     private ViewMode viewMode = ViewMode.ORBIT;
     private long startTimestamp;
     private double currentAngle;
 
-    // 目标位置和速度（用于预测）
+    // Raw target state from network
     private double targetX, targetY, targetZ;
     private double targetVelX, targetVelY, targetVelZ;
+
+    // Smoothed target state used for rendering
+    private double smoothTargetX, smoothTargetY, smoothTargetZ;
+    private double smoothTargetVelX, smoothTargetVelY, smoothTargetVelZ;
+    private boolean targetStateInitialized;
     private long lastTargetUpdateTime;
 
-    // 位置缓存（用于帧间插值）
+    // Frame interpolation cache
     private CameraPosition lastPosition;
     private CameraPosition currentPosition;
     private long lastUpdateTime;
 
-    // FloatingCamera 实例（用于 FLOATING 模式）
-    private FloatingCamera floatingCamera;
+    private final FloatingCamera floatingCamera;
 
     public SmoothCameraController() {
         this.floatingCamera = new FloatingCamera();
         this.startTimestamp = System.currentTimeMillis();
         this.lastUpdateTime = System.currentTimeMillis();
+        this.lastTargetUpdateTime = System.currentTimeMillis();
     }
 
-    /**
-     * 设置摄像机参数
-     */
     public void setParams(double distance, double heightOffset, double rotationSpeed,
                           double floatingStrength, double floatingSpeed,
                           double dampingFactor, double attractionFactor,
@@ -62,7 +67,6 @@ public class SmoothCameraController {
         this.currentAngle = initialAngle;
         this.startTimestamp = startTimestamp;
 
-        // 更新 FloatingCamera 参数
         floatingCamera.setFloatingStrength(floatingStrength);
         floatingCamera.setFloatingSpeed(floatingSpeed);
         floatingCamera.setDampingFactor(dampingFactor);
@@ -70,21 +74,13 @@ public class SmoothCameraController {
         floatingCamera.setOrbitRadius(distance);
     }
 
-    /**
-     * 设置视角模式
-     */
     public void setViewMode(ViewMode viewMode) {
         this.viewMode = viewMode;
-
-        // 如果切换模式，重置浮游摄像机
         if (viewMode == ViewMode.CINEMATIC_FLOATING) {
             floatingCamera.reset();
         }
     }
 
-    /**
-     * 更新目标位置（从服务端接收）
-     */
     public void updateTarget(double x, double y, double z, double velX, double velY, double velZ, long serverTime) {
         this.targetX = x;
         this.targetY = y;
@@ -92,39 +88,61 @@ public class SmoothCameraController {
         this.targetVelX = velX;
         this.targetVelY = velY;
         this.targetVelZ = velZ;
-        this.lastTargetUpdateTime = serverTime;
+
+        // Use client receive time as the baseline for prediction.
+        this.lastTargetUpdateTime = System.currentTimeMillis();
+
+        if (!targetStateInitialized) {
+            this.smoothTargetX = x;
+            this.smoothTargetY = y;
+            this.smoothTargetZ = z;
+            this.smoothTargetVelX = velX;
+            this.smoothTargetVelY = velY;
+            this.smoothTargetVelZ = velZ;
+            this.targetStateInitialized = true;
+        }
     }
 
-    /**
-     * 更新目标位置（静态目标）
-     */
     public void updateTarget(double x, double y, double z) {
         updateTarget(x, y, z, 0, 0, 0, System.currentTimeMillis());
     }
 
-    /**
-     * 获取预测的目标位置
-     */
+    private void updateTargetSmoothing(double deltaTime) {
+        if (!targetStateInitialized || deltaTime <= 0) {
+            return;
+        }
+
+        double clampedDelta = Math.min(deltaTime, 0.1);
+        double posAlpha = 1.0 - Math.exp(-clampedDelta / TARGET_POSITION_SMOOTH_TIME_SEC);
+        double velAlpha = 1.0 - Math.exp(-clampedDelta / TARGET_VELOCITY_SMOOTH_TIME_SEC);
+
+        smoothTargetX += (targetX - smoothTargetX) * posAlpha;
+        smoothTargetY += (targetY - smoothTargetY) * posAlpha;
+        smoothTargetZ += (targetZ - smoothTargetZ) * posAlpha;
+        smoothTargetVelX += (targetVelX - smoothTargetVelX) * velAlpha;
+        smoothTargetVelY += (targetVelY - smoothTargetVelY) * velAlpha;
+        smoothTargetVelZ += (targetVelZ - smoothTargetVelZ) * velAlpha;
+    }
+
     private Vec3d getPredictedTargetPosition() {
+        if (!targetStateInitialized) {
+            return new Vec3d(targetX, targetY, targetZ);
+        }
+
         long now = System.currentTimeMillis();
         double deltaSeconds = (now - lastTargetUpdateTime) / 1000.0;
+        deltaSeconds = Math.max(0.0, Math.min(deltaSeconds, MAX_PREDICTION_AHEAD_SEC));
 
-        // 限制预测时间，避免目标位置跑太远
-        deltaSeconds = Math.min(deltaSeconds, 0.5);
-
-        double predX = targetX + targetVelX * deltaSeconds;
-        double predY = targetY + targetVelY * deltaSeconds;
-        double predZ = targetZ + targetVelZ * deltaSeconds;
+        double predX = smoothTargetX + smoothTargetVelX * deltaSeconds;
+        double predY = smoothTargetY + smoothTargetVelY * deltaSeconds;
+        double predZ = smoothTargetZ + smoothTargetVelZ * deltaSeconds;
 
         return new Vec3d(predX, predY, predZ);
     }
 
-    /**
-     * 每帧更新摄像机位置
-     * @param deltaTime 帧间隔时间（秒）
-     */
     public void update(double deltaTime) {
         lastPosition = currentPosition;
+        updateTargetSmoothing(deltaTime);
         Vec3d target = getPredictedTargetPosition();
 
         switch (viewMode) {
@@ -150,9 +168,6 @@ public class SmoothCameraController {
         lastUpdateTime = System.currentTimeMillis();
     }
 
-    /**
-     * 轨道视角更新
-     */
     private CameraPosition updateOrbit(Vec3d target, double deltaTime) {
         double elapsedSeconds = (System.currentTimeMillis() - startTimestamp) / 1000.0;
 
@@ -168,7 +183,6 @@ public class SmoothCameraController {
         double camY = target.y + heightOffset;
         double camZ = target.z + camZo;
 
-        // 计算朝向
         double dx = target.x - camX;
         double dy = target.y - camY;
         double dz = target.z - camZ;
@@ -178,20 +192,14 @@ public class SmoothCameraController {
         return new CameraPosition(camX, camY, camZ, yaw, pitch);
     }
 
-    /**
-     * 跟随视角更新
-     */
     private CameraPosition updateFollow(Vec3d target, double deltaTime) {
         double followDistance = 5.0;
         double followHeight = 1.5;
 
-        // 跟随视角需要目标朝向，这里简化为始终在目标后方
-        // 实际使用时可以从服务端获取目标朝向
         double camX = target.x;
         double camY = target.y + followHeight;
         double camZ = target.z - followDistance;
 
-        // 计算朝向
         double dx = target.x - camX;
         double dy = target.y - camY;
         double dz = target.z - camZ;
@@ -201,30 +209,23 @@ public class SmoothCameraController {
         return new CameraPosition(camX, camY, camZ, yaw, pitch);
     }
 
-    /**
-     * 浮游视角更新（使用 FloatingCamera 物理模拟）
-     */
     private CameraPosition updateFloating(Vec3d target, double deltaTime) {
         double[] result = new double[5];
         floatingCamera.updatePosition(target.x, target.y, target.z, deltaTime, result);
-
         return new CameraPosition(result[0], result[1], result[2], (float) result[3], (float) result[4]);
     }
 
-    /**
-     * 其他电影模式更新
-     */
     private CameraPosition updateCinematicOther(Vec3d target, double deltaTime) {
         double elapsedSeconds = (System.currentTimeMillis() - startTimestamp) / 1000.0;
-        double camX, camY, camZ;
+        double camX;
+        double camY;
+        double camZ;
 
         if (viewMode == ViewMode.CINEMATIC_AERIAL_VIEW) {
-            // 高空俯瞰
             camX = target.x;
             camY = target.y + 25.0;
             camZ = target.z;
         } else if (viewMode == ViewMode.CINEMATIC_SPIRAL_UP) {
-            // 螺旋上升
             double spiralSpeed = 1.0;
             double riseSpeed = 0.3;
             double angleRad = (elapsedSeconds * spiralSpeed) * Math.PI / 180.0;
@@ -236,7 +237,6 @@ public class SmoothCameraController {
             camY = target.y + currentHeight;
             camZ = target.z + camZo;
         } else {
-            // SLOW_ORBIT 或默认
             double slowRotSpeed = 0.5;
             double angleRad = (elapsedSeconds * slowRotSpeed) * Math.PI / 180.0;
 
@@ -247,7 +247,6 @@ public class SmoothCameraController {
             camZ = target.z + camZo;
         }
 
-        // 计算朝向
         double dx = target.x - camX;
         double dy = target.y - camY;
         double dz = target.z - camZ;
@@ -257,30 +256,26 @@ public class SmoothCameraController {
         return new CameraPosition(camX, camY, camZ, yaw, pitch);
     }
 
-    /**
-     * 获取帧间插值的摄像机位置
-     * @param tickDelta 帧内插值因子 (0.0 - 1.0)
-     * @return 插值后的摄像机位置
-     */
     public CameraPosition getInterpolated(float tickDelta) {
         return CameraPosition.lerp(lastPosition, currentPosition, tickDelta);
     }
 
-    /**
-     * 获取当前摄像机位置（不插值）
-     */
     public CameraPosition getCurrentPosition() {
         return currentPosition;
     }
 
-    /**
-     * 重置控制器状态
-     */
     public void reset() {
         lastPosition = null;
         currentPosition = null;
         floatingCamera.reset();
         currentAngle = 0;
         startTimestamp = System.currentTimeMillis();
+
+        targetX = targetY = targetZ = 0;
+        targetVelX = targetVelY = targetVelZ = 0;
+        smoothTargetX = smoothTargetY = smoothTargetZ = 0;
+        smoothTargetVelX = smoothTargetVelY = smoothTargetVelZ = 0;
+        targetStateInitialized = false;
+        lastTargetUpdateTime = System.currentTimeMillis();
     }
 }

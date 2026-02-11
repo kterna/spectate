@@ -29,6 +29,7 @@ public abstract class GameRendererMixin {
                     shift = At.Shift.AFTER
             )
     )
+    @SuppressWarnings("deprecation")
     private void spectate$renderTiltShift(net.minecraft.client.render.RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
         net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
         if (client.world == null) {

@@ -1,7 +1,28 @@
-{
-  "key.categories.spectate": "观察",
+﻿{
+  "key.categories.spectate": "观战",
   "key.spectate.tiltshift.toggle": "切换移轴效果",
-  "key.spectate.tiltshift.decrease": "移轴参数减小",
-  "key.spectate.tiltshift.increase": "移轴参数增大"
+  "key.spectate.tiltshift.decrease": "减小移轴参数",
+  "key.spectate.tiltshift.increase": "增大移轴参数",
+  "screen.spectate.config.title": "观战配置",
+  "category.spectate.general": "通用",
+  "category.spectate.floating": "浮游镜头",
+  "category.spectate.tiltshift": "移轴效果",
+  "option.spectate.cycle_interval_seconds": "循环间隔（秒）",
+  "option.spectate.spectate_distance": "观战距离",
+  "option.spectate.spectate_height_offset": "观战高度偏移",
+  "option.spectate.spectate_rotation_speed": "观战旋转速度",
+  "option.spectate.floating_strength": "浮游强度",
+  "option.spectate.floating_speed": "浮游速度",
+  "option.spectate.floating_orbit_radius": "浮游环绕半径",
+  "option.spectate.floating_height_variation": "浮游高度变化",
+  "option.spectate.floating_breathing_frequency": "浮游呼吸频率",
+  "option.spectate.floating_damping_factor": "浮游阻尼系数",
+  "option.spectate.floating_attraction_factor": "浮游吸引系数",
+  "option.spectate.floating_prediction_factor": "浮游预测系数",
+  "option.spectate.tiltshift_enabled": "启用移轴效果",
+  "option.spectate.tiltshift_focus_y": "焦点 Y",
+  "option.spectate.tiltshift_focus_width": "焦点宽度",
+  "option.spectate.tiltshift_blur_radius": "模糊半径",
+  "option.spectate.tiltshift_falloff": "过渡衰减",
+  "option.spectate.tiltshift_saturation_boost": "饱和度增强"
 }
-

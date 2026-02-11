@@ -68,13 +68,13 @@ public class SpectateModClient implements ClientModInitializer {
 
     private void registerClientKeyBindings() {
         this.toggleTiltShiftKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding("key.spectate.tiltshift.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_T, KEY_CATEGORY)
+                new KeyBinding("key.spectate.tiltshift.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F8, KEY_CATEGORY)
         );
         this.decreaseTiltShiftKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding("key.spectate.tiltshift.decrease", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_BRACKET, KEY_CATEGORY)
+                new KeyBinding("key.spectate.tiltshift.decrease", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F7, KEY_CATEGORY)
         );
         this.increaseTiltShiftKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding("key.spectate.tiltshift.increase", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_BRACKET, KEY_CATEGORY)
+                new KeyBinding("key.spectate.tiltshift.increase", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F9, KEY_CATEGORY)
         );
     }
 
