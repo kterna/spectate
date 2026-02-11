@@ -1,6 +1,7 @@
 package com.spectate.client;
 
 import com.spectate.SpectateMod;
+import com.spectate.client.config.SpectateConfigScreenFactory;
 import com.spectate.network.SpectateNetworking;
 import com.spectate.network.packet.SpectateParamsPayload;
 import com.spectate.network.packet.SpectateStatePayload;
@@ -21,8 +22,6 @@ import net.minecraft.text.Text;
 //#endif
 import org.lwjgl.glfw.GLFW;
 
-import java.util.Locale;
-
 /**
  * Client-side mod entry point.
  * Handles client initialization and packet receivers.
@@ -33,9 +32,8 @@ public class SpectateModClient implements ClientModInitializer {
     private static final String KEY_CATEGORY = "key.categories.spectate";
     private static final String MESSAGE_PREFIX = "[Spectate] ";
 
+    private KeyBinding openConfigKey;
     private KeyBinding toggleTiltShiftKey;
-    private KeyBinding decreaseTiltShiftKey;
-    private KeyBinding increaseTiltShiftKey;
 
     @Override
     public void onInitializeClient() {
@@ -67,22 +65,27 @@ public class SpectateModClient implements ClientModInitializer {
     }
 
     private void registerClientKeyBindings() {
+        this.openConfigKey = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding("key.spectate.open_config", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F9, KEY_CATEGORY)
+        );
         this.toggleTiltShiftKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding("key.spectate.tiltshift.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F8, KEY_CATEGORY)
-        );
-        this.decreaseTiltShiftKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding("key.spectate.tiltshift.decrease", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F7, KEY_CATEGORY)
-        );
-        this.increaseTiltShiftKey = KeyBindingHelper.registerKeyBinding(
-                new KeyBinding("key.spectate.tiltshift.increase", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F9, KEY_CATEGORY)
+                new KeyBinding("key.spectate.tiltshift.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, KEY_CATEGORY)
         );
     }
 
     private void handleTiltShiftHotkeys(MinecraftClient client) {
-        if (client.currentScreen != null || client.player == null) {
+        if (client.currentScreen != null) {
             return;
         }
-        if (toggleTiltShiftKey == null || decreaseTiltShiftKey == null || increaseTiltShiftKey == null) {
+        if (openConfigKey == null || toggleTiltShiftKey == null) {
+            return;
+        }
+
+        while (openConfigKey.wasPressed()) {
+            openConfigScreen(client);
+        }
+
+        if (client.player == null) {
             return;
         }
 
@@ -99,40 +102,14 @@ public class SpectateModClient implements ClientModInitializer {
                 sendClientOverlayMessage(client, tr("warning.spectate.tiltshift.experimental"));
             }
         }
-
-        while (decreaseTiltShiftKey.wasPressed()) {
-            handleTiltShiftAdjust(manager, client, -1.0);
-        }
-        while (increaseTiltShiftKey.wasPressed()) {
-            handleTiltShiftAdjust(manager, client, 1.0);
-        }
     }
 
-    private void handleTiltShiftAdjust(ClientSpectateManager manager, MinecraftClient client, double direction) {
-        if (!manager.isSpectating()) {
-            sendClientOverlayMessage(client, tr("message.spectate.tiltshift.only_spectating"));
-            return;
-        }
-
-        TiltShiftSettings settings = manager.getTiltShiftSettings();
-        if (isShiftPressed(client)) {
-            double blurRadius = settings.adjustBlurRadius(direction * 0.5);
-            sendClientOverlayMessage(client, String.format(Locale.ROOT, tr("message.spectate.tiltshift.blur_radius"), format2(blurRadius)));
-            return;
-        }
-
-        double focusY = settings.adjustFocusY(direction * 0.02);
-        sendClientOverlayMessage(client, String.format(Locale.ROOT, tr("message.spectate.tiltshift.focus_y"), format2(focusY)));
-    }
-
-    private boolean isShiftPressed(MinecraftClient client) {
-        long handle = client.getWindow().getHandle();
-        return InputUtil.isKeyPressed(handle, GLFW.GLFW_KEY_LEFT_SHIFT)
-                || InputUtil.isKeyPressed(handle, GLFW.GLFW_KEY_RIGHT_SHIFT);
-    }
-
-    private String format2(double value) {
-        return String.format(Locale.ROOT, "%.2f", value);
+    private void openConfigScreen(MinecraftClient client) {
+        //#if MC >= 11700
+        client.setScreen(SpectateConfigScreenFactory.create(client.currentScreen));
+        //#else
+        //$$ client.openScreen(SpectateConfigScreenFactory.create(client.currentScreen));
+        //#endif
     }
 
     private String tr(String key) {

@@ -79,7 +79,14 @@ public abstract class GameRendererMixin {
     //#endif
 
     //#if MC >= 12104
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(
+            method = "render",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/render/WorldRenderer;drawEntityOutlinesFramebuffer()V",
+                    shift = At.Shift.AFTER
+            )
+    )
     @SuppressWarnings("deprecation")
     private void spectate$renderTiltShift(net.minecraft.client.render.RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
         net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
@@ -126,7 +133,14 @@ public abstract class GameRendererMixin {
         }
     }
     //#elseif MC == 12100
-    //$$ @Inject(method = "render", at = @At("TAIL"))
+    //$$ @Inject(
+    //$$         method = "render",
+    //$$         at = @At(
+    //$$                 value = "INVOKE",
+    //$$                 target = "Lnet/minecraft/client/render/WorldRenderer;drawEntityOutlinesFramebuffer()V",
+    //$$                 shift = At.Shift.AFTER
+    //$$         )
+    //$$ )
     //$$ private void spectate$renderTiltShiftLegacy(net.minecraft.client.render.RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
     //$$     net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
     //$$     if (client.world == null) {
@@ -153,7 +167,14 @@ public abstract class GameRendererMixin {
     //$$     }
     //$$ }
     //#elseif MC == 12101
-    //$$ @Inject(method = "render", at = @At("TAIL"))
+    //$$ @Inject(
+    //$$         method = "render",
+    //$$         at = @At(
+    //$$                 value = "INVOKE",
+    //$$                 target = "Lnet/minecraft/client/render/WorldRenderer;drawEntityOutlinesFramebuffer()V",
+    //$$                 shift = At.Shift.AFTER
+    //$$         )
+    //$$ )
     //$$ private void spectate$renderTiltShiftLegacy(net.minecraft.client.render.RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
     //$$     net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
     //$$     if (client.world == null) {

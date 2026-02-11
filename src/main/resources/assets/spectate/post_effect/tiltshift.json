@@ -22,12 +22,12 @@
         {
           "name": "FocusWidth",
           "type": "float",
-          "values": [0.3]
+          "values": [0.1]
         },
         {
           "name": "BlurRadius",
           "type": "float",
-          "values": [8.0]
+          "values": [40.0]
         },
         {
           "name": "Falloff",
@@ -37,7 +37,7 @@
         {
           "name": "SaturationBoost",
           "type": "float",
-          "values": [1.15]
+          "values": [1.5]
         }
       ]
     },

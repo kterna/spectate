@@ -1,5 +1,6 @@
 ﻿{
   "key.categories.spectate": "观战",
+  "key.spectate.open_config": "打开配置菜单",
   "key.spectate.tiltshift.toggle": "切换移轴效果",
   "key.spectate.tiltshift.decrease": "减小移轴参数",
   "key.spectate.tiltshift.increase": "增大移轴参数",

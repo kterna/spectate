@@ -78,7 +78,7 @@
       "type": "float",
       "count": 1,
       "values": [
-        0.3
+        0.1
       ]
     },
     {
@@ -86,7 +86,7 @@
       "type": "float",
       "count": 1,
       "values": [
-        8.0
+        40.0
       ]
     },
     {
@@ -102,7 +102,7 @@
       "type": "float",
       "count": 1,
       "values": [
-        1.15
+        1.5
       ]
     }
   ]

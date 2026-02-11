@@ -127,8 +127,8 @@ public final class SpectateConfigScreenFactory {
 
         tiltShiftCategory.addEntry(entryBuilder
                 .startDoubleField(tr("option.spectate.tiltshift_focus_width"), config.settings.tiltshift_focus_width)
-                .setDefaultValue(0.3)
-                .setMin(0.1)
+                .setDefaultValue(0.1)
+                .setMin(0.01)
                 .setMax(0.8)
                 .setTooltip(tr("tooltip.spectate.tiltshift_focus_width"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_focus_width", value))
@@ -136,9 +136,9 @@ public final class SpectateConfigScreenFactory {
 
         tiltShiftCategory.addEntry(entryBuilder
                 .startDoubleField(tr("option.spectate.tiltshift_blur_radius"), config.settings.tiltshift_blur_radius)
-                .setDefaultValue(8.0)
+                .setDefaultValue(40.0)
                 .setMin(1.0)
-                .setMax(20.0)
+                .setMax(100.0)
                 .setTooltip(tr("tooltip.spectate.tiltshift_blur_radius"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_blur_radius", value))
                 .build());
@@ -154,9 +154,9 @@ public final class SpectateConfigScreenFactory {
 
         tiltShiftCategory.addEntry(entryBuilder
                 .startDoubleField(tr("option.spectate.tiltshift_saturation_boost"), config.settings.tiltshift_saturation_boost)
-                .setDefaultValue(1.15)
+                .setDefaultValue(1.5)
                 .setMin(1.0)
-                .setMax(1.5)
+                .setMax(2.0)
                 .setTooltip(tr("tooltip.spectate.tiltshift_saturation_boost"))
                 .setSaveConsumer(value -> saveDouble(manager, "settings.tiltshift_saturation_boost", value))
                 .build());

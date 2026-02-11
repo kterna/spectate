@@ -56,16 +56,16 @@ public class SpectateConfig {
         public double tiltshift_focus_y = 0.5;
 
         /** 清晰带宽度 (0.1-0.8) */
-        public double tiltshift_focus_width = 0.3;
+        public double tiltshift_focus_width = 0.1;
 
         /** 模糊半径 (1.0-20.0) */
-        public double tiltshift_blur_radius = 8.0;
+        public double tiltshift_blur_radius = 40.0;
 
         /** 过渡平滑度 (0.1-1.0) */
         public double tiltshift_falloff = 0.5;
 
         /** 饱和度增强 (1.0-1.5) */
-        public double tiltshift_saturation_boost = 1.15;
+        public double tiltshift_saturation_boost = 1.5;
     }
 
     public static class Messages {

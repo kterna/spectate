@@ -12,20 +12,20 @@ public class TiltShiftSettings {
 
     private static final double MIN_FOCUS_Y = 0.0;
     private static final double MAX_FOCUS_Y = 1.0;
-    private static final double MIN_FOCUS_WIDTH = 0.1;
+    private static final double MIN_FOCUS_WIDTH = 0.01;
     private static final double MAX_FOCUS_WIDTH = 0.8;
     private static final double MIN_BLUR_RADIUS = 1.0;
-    private static final double MAX_BLUR_RADIUS = 20.0;
+    private static final double MAX_BLUR_RADIUS = 100.0;
     private static final double MIN_FALLOFF = 0.1;
     private static final double MAX_FALLOFF = 1.0;
     private static final double MIN_SATURATION_BOOST = 1.0;
-    private static final double MAX_SATURATION_BOOST = 1.5;
+    private static final double MAX_SATURATION_BOOST = 2.0;
 
     private static final double DEFAULT_FOCUS_Y = 0.5;
-    private static final double DEFAULT_FOCUS_WIDTH = 0.3;
-    private static final double DEFAULT_BLUR_RADIUS = 8.0;
+    private static final double DEFAULT_FOCUS_WIDTH = 0.1;
+    private static final double DEFAULT_BLUR_RADIUS = 40.0;
     private static final double DEFAULT_FALLOFF = 0.5;
-    private static final double DEFAULT_SATURATION_BOOST = 1.15;
+    private static final double DEFAULT_SATURATION_BOOST = 1.5;
 
     private final ConfigManager configManager;
 
