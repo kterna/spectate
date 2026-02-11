@@ -136,7 +136,7 @@ public class SpectateModClient implements ClientModInitializer {
         //#if MC >= 11900
         client.player.sendMessage(Text.literal(MESSAGE_PREFIX + message), true);
         //#else
-        //$$ client.player.sendMessage(new LiteralText(MESSAGE_PREFIX + message), java.util.UUID.randomUUID());
+        //$$ client.player.sendMessage(new LiteralText(MESSAGE_PREFIX + message), true);
         //#endif
     }
 
