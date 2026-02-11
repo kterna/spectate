@@ -55,7 +55,6 @@ public class CycleService {
         private ScheduledFuture<?> future;
         private boolean running;
         private ViewMode viewMode;
-        private CinematicMode cinematicMode;
         private volatile long currentPointStartTime; // 记录当前观察点开始的时间戳
 
         // 自动添加所有玩家相关
@@ -69,7 +68,6 @@ public class CycleService {
             this.index = 0;
             this.running = false;
             this.viewMode = ViewMode.ORBIT; // 默认环绕模式
-            this.cinematicMode = null;
             this.autoAddAllPlayers = false;
             this.excludePrefix = null;
             this.excludeSuffix = null;
@@ -116,17 +114,12 @@ public class CycleService {
             running = false;
         }
 
-        void setViewMode(ViewMode viewMode, CinematicMode cinematicMode) {
+        void setViewMode(ViewMode viewMode) {
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
-            this.cinematicMode = cinematicMode;
         }
 
         ViewMode getViewMode() {
             return viewMode;
-        }
-
-        CinematicMode getCinematicMode() {
-            return cinematicMode;
         }
 
         long getTimeRemaining() {
@@ -305,9 +298,8 @@ public class CycleService {
         // 加载偏好
         PlayerPreference pref = SpectateStateSaver.getInstance().getPlayerPreference(player.getUuid());
         ViewMode viewMode = pref.lastCycleViewMode != null ? pref.lastCycleViewMode : ViewMode.ORBIT;
-        CinematicMode cinematicMode = pref.lastCycleCinematicMode;
 
-        startCycle(player, viewMode, cinematicMode);
+        startCycle(player, viewMode);
     }
 
     /**
@@ -316,13 +308,13 @@ public class CycleService {
      *
      * @param player 目标玩家。
      * @param viewMode 视角模式。
-     * @param cinematicMode 电影模式子选项。
      */
-    public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
+    public void startCycle(ServerPlayerEntity player, ViewMode viewMode) {
+        ViewMode normalizedViewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
+
         // 保存偏好
         PlayerPreference pref = SpectateStateSaver.getInstance().getPlayerPreference(player.getUuid());
-        pref.lastCycleViewMode = viewMode;
-        pref.lastCycleCinematicMode = cinematicMode;
+        pref.lastCycleViewMode = normalizedViewMode;
         SpectateStateSaver.getInstance().savePlayerPreference(player.getUuid(), pref);
 
         PlayerCycleSession session = getOrCreateSession(player.getUuid());
@@ -336,11 +328,11 @@ public class CycleService {
         }
         
         // 设置视角模式
-        session.setViewMode(viewMode, cinematicMode);
+        session.setViewMode(normalizedViewMode);
         session.start();
         
         // 宣布开始并附带模式信息
-        String modeMessage = getViewModeMessage(viewMode, cinematicMode);
+        String modeMessage = getViewModeMessage(normalizedViewMode);
         player.sendMessage(configManager.getFormattedMessage("cycle_started_with_mode", 
             Map.of("mode", modeMessage)), false);
 
@@ -445,31 +437,24 @@ public class CycleService {
         return session != null ? session.getViewMode() : ViewMode.ORBIT;
     }
 
-    /**
-     * 获取玩家当前循环会话的电影模式设置。
-     */
-    public CinematicMode getCurrentCinematicMode(UUID playerId) {
-        PlayerCycleSession session = cycleSessions.get(playerId);
-        return session != null ? session.getCinematicMode() : null;
-    }
+    private String getViewModeMessage(ViewMode viewMode) {
+        if (viewMode == null) {
+            return "普通模式";
+        }
 
-    private String getViewModeMessage(ViewMode viewMode, CinematicMode cinematicMode) {
         switch (viewMode) {
             case ORBIT:
                 return "环绕模式";
             case FOLLOW:
                 return "跟随模式";
-            case CINEMATIC:
-                if (cinematicMode != null) {
-                    switch (cinematicMode) {
-                        case SLOW_ORBIT: return "电影模式 - 慢速环绕";
-                        case AERIAL_VIEW: return "电影模式 - 高空俯瞰";
-                        case SPIRAL_UP: return "电影模式 - 螺旋上升";
-                        case FLOATING: return "电影模式 - 浮游视角";
-                        default: return "电影模式";
-                    }
-                }
-                return "电影模式";
+            case CINEMATIC_SLOW_ORBIT:
+                return "慢速环绕";
+            case CINEMATIC_AERIAL_VIEW:
+                return "高空俯瞰";
+            case CINEMATIC_SPIRAL_UP:
+                return "螺旋上升";
+            case CINEMATIC_FLOATING:
+                return "浮游视角";
             default:
                 return "普通模式";
         }

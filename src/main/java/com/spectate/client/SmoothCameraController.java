@@ -1,6 +1,5 @@
 package com.spectate.client;
 
-import com.spectate.service.CinematicMode;
 import com.spectate.service.FloatingCamera;
 import com.spectate.service.ViewMode;
 import net.minecraft.util.math.Vec3d;
@@ -24,7 +23,6 @@ public class SmoothCameraController {
 
     // 状态变量
     private ViewMode viewMode = ViewMode.ORBIT;
-    private CinematicMode cinematicMode = null;
     private long startTimestamp;
     private double currentAngle;
 
@@ -75,12 +73,11 @@ public class SmoothCameraController {
     /**
      * 设置视角模式
      */
-    public void setViewMode(ViewMode viewMode, CinematicMode cinematicMode) {
+    public void setViewMode(ViewMode viewMode) {
         this.viewMode = viewMode;
-        this.cinematicMode = cinematicMode;
 
         // 如果切换模式，重置浮游摄像机
-        if (cinematicMode == CinematicMode.FLOATING) {
+        if (viewMode == ViewMode.CINEMATIC_FLOATING) {
             floatingCamera.reset();
         }
     }
@@ -137,12 +134,13 @@ public class SmoothCameraController {
             case FOLLOW:
                 currentPosition = updateFollow(target, deltaTime);
                 break;
-            case CINEMATIC:
-                if (cinematicMode == CinematicMode.FLOATING) {
-                    currentPosition = updateFloating(target, deltaTime);
-                } else {
-                    currentPosition = updateCinematicOther(target, deltaTime);
-                }
+            case CINEMATIC_FLOATING:
+                currentPosition = updateFloating(target, deltaTime);
+                break;
+            case CINEMATIC_AERIAL_VIEW:
+            case CINEMATIC_SPIRAL_UP:
+            case CINEMATIC_SLOW_ORBIT:
+                currentPosition = updateCinematicOther(target, deltaTime);
                 break;
             default:
                 currentPosition = updateOrbit(target, deltaTime);
@@ -220,12 +218,12 @@ public class SmoothCameraController {
         double elapsedSeconds = (System.currentTimeMillis() - startTimestamp) / 1000.0;
         double camX, camY, camZ;
 
-        if (cinematicMode == CinematicMode.AERIAL_VIEW) {
+        if (viewMode == ViewMode.CINEMATIC_AERIAL_VIEW) {
             // 高空俯瞰
             camX = target.x;
             camY = target.y + 25.0;
             camZ = target.z;
-        } else if (cinematicMode == CinematicMode.SPIRAL_UP) {
+        } else if (viewMode == ViewMode.CINEMATIC_SPIRAL_UP) {
             // 螺旋上升
             double spiralSpeed = 1.0;
             double riseSpeed = 0.3;

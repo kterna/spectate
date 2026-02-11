@@ -1,10 +1,8 @@
 package com.spectate.network.packet;
 
 import com.spectate.network.SpectateNetworking;
-import com.spectate.service.CinematicMode;
 import com.spectate.service.ViewMode;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,8 +24,7 @@ public record SpectateStatePayload(
         @Nullable UUID targetId,
         @Nullable BlockPos pointPos,
         String dimension,
-        ViewMode viewMode,
-        @Nullable CinematicMode cinematicMode
+        ViewMode viewMode
 ) implements CustomPayload {
 
     public static final CustomPayload.Id<SpectateStatePayload> ID =
@@ -54,10 +51,6 @@ public record SpectateStatePayload(
         }
         buf.writeString(dimension);
         buf.writeEnumConstant(viewMode);
-        buf.writeBoolean(cinematicMode != null);
-        if (cinematicMode != null) {
-            buf.writeEnumConstant(cinematicMode);
-        }
     }
 
     public static SpectateStatePayload read(PacketByteBuf buf) {
@@ -67,9 +60,8 @@ public record SpectateStatePayload(
         BlockPos pointPos = buf.readBoolean() ? buf.readBlockPos() : null;
         String dimension = buf.readString();
         ViewMode viewMode = buf.readEnumConstant(ViewMode.class);
-        CinematicMode cinematicMode = buf.readBoolean() ? buf.readEnumConstant(CinematicMode.class) : null;
 
-        return new SpectateStatePayload(action, isPoint, targetId, pointPos, dimension, viewMode, cinematicMode);
+        return new SpectateStatePayload(action, isPoint, targetId, pointPos, dimension, viewMode);
     }
 
     /**
@@ -83,12 +75,12 @@ public record SpectateStatePayload(
 
     // 静态工厂方法
     public static SpectateStatePayload start(boolean isPoint, @Nullable UUID targetId,
-            @Nullable BlockPos pointPos, String dimension, ViewMode viewMode, @Nullable CinematicMode cinematicMode) {
-        return new SpectateStatePayload(Action.START, isPoint, targetId, pointPos, dimension, viewMode, cinematicMode);
+            @Nullable BlockPos pointPos, String dimension, ViewMode viewMode) {
+        return new SpectateStatePayload(Action.START, isPoint, targetId, pointPos, dimension, viewMode);
     }
 
     public static SpectateStatePayload stop() {
-        return new SpectateStatePayload(Action.STOP, false, null, null, "", ViewMode.ORBIT, null);
+        return new SpectateStatePayload(Action.STOP, false, null, null, "", ViewMode.ORBIT);
     }
 }
 //#else
@@ -102,18 +94,15 @@ public record SpectateStatePayload(
 //$$    private final BlockPos pointPos;
 //$$    private final String dimension;
 //$$    private final ViewMode viewMode;
-//$$    @Nullable
-//$$    private final CinematicMode cinematicMode;
 //$$
 //$$    public SpectateStatePayload(Action action, boolean isPoint, @Nullable UUID targetId,
-//$$            @Nullable BlockPos pointPos, String dimension, ViewMode viewMode, @Nullable CinematicMode cinematicMode) {
+//$$            @Nullable BlockPos pointPos, String dimension, ViewMode viewMode) {
 //$$        this.action = action;
 //$$        this.isPoint = isPoint;
 //$$        this.targetId = targetId;
 //$$        this.pointPos = pointPos;
 //$$        this.dimension = dimension;
 //$$        this.viewMode = viewMode;
-//$$        this.cinematicMode = cinematicMode;
 //$$    }
 //$$
 //$$    public Action action() { return action; }
@@ -122,7 +111,6 @@ public record SpectateStatePayload(
 //$$    @Nullable public BlockPos pointPos() { return pointPos; }
 //$$    public String dimension() { return dimension; }
 //$$    public ViewMode viewMode() { return viewMode; }
-//$$    @Nullable public CinematicMode cinematicMode() { return cinematicMode; }
 //$$
 //$$    public void write(PacketByteBuf buf) {
 //$$        buf.writeEnumConstant(action);
@@ -137,10 +125,6 @@ public record SpectateStatePayload(
 //$$        }
 //$$        buf.writeString(dimension);
 //$$        buf.writeEnumConstant(viewMode);
-//$$        buf.writeBoolean(cinematicMode != null);
-//$$        if (cinematicMode != null) {
-//$$            buf.writeEnumConstant(cinematicMode);
-//$$        }
 //$$    }
 //$$
 //$$    public static SpectateStatePayload read(PacketByteBuf buf) {
@@ -150,8 +134,7 @@ public record SpectateStatePayload(
 //$$        BlockPos pointPos = buf.readBoolean() ? buf.readBlockPos() : null;
 //$$        String dimension = buf.readString();
 //$$        ViewMode viewMode = buf.readEnumConstant(ViewMode.class);
-//$$        CinematicMode cinematicMode = buf.readBoolean() ? buf.readEnumConstant(CinematicMode.class) : null;
-//$$        return new SpectateStatePayload(action, isPoint, targetId, pointPos, dimension, viewMode, cinematicMode);
+//$$        return new SpectateStatePayload(action, isPoint, targetId, pointPos, dimension, viewMode);
 //$$    }
 //$$
 //$$    public enum Action {
@@ -161,12 +144,12 @@ public record SpectateStatePayload(
 //$$    }
 //$$
 //$$    public static SpectateStatePayload start(boolean isPoint, @Nullable UUID targetId,
-//$$            @Nullable BlockPos pointPos, String dimension, ViewMode viewMode, @Nullable CinematicMode cinematicMode) {
-//$$        return new SpectateStatePayload(Action.START, isPoint, targetId, pointPos, dimension, viewMode, cinematicMode);
+//$$            @Nullable BlockPos pointPos, String dimension, ViewMode viewMode) {
+//$$        return new SpectateStatePayload(Action.START, isPoint, targetId, pointPos, dimension, viewMode);
 //$$    }
 //$$
 //$$    public static SpectateStatePayload stop() {
-//$$        return new SpectateStatePayload(Action.STOP, false, null, null, "", ViewMode.ORBIT, null);
+//$$        return new SpectateStatePayload(Action.STOP, false, null, null, "", ViewMode.ORBIT);
 //$$    }
 //$$}
 //#endif

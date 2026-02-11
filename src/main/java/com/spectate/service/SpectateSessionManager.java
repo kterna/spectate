@@ -134,7 +134,6 @@ public class SpectateSessionManager {
         private final ServerPlayerEntity targetPlayer;
         private final boolean isPoint;
         private final ViewMode viewMode;
-        private final CinematicMode cinematicMode;
         private FloatingCamera floatingCamera; // 浮游摄像机实例
         private boolean useSmoothClient; // 是否使用客户端平滑
 
@@ -147,18 +146,16 @@ public class SpectateSessionManager {
             this.targetPlayer = null;
             this.isPoint = true;
             this.viewMode = ViewMode.ORBIT;
-            this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
             this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
-        SpectateSession(SpectatePointData pointData, ViewMode viewMode, CinematicMode cinematicMode) {
+        SpectateSession(SpectatePointData pointData, ViewMode viewMode) {
             this.spectatePointData = pointData;
             this.targetPlayer = null;
             this.isPoint = true;
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
-            this.cinematicMode = cinematicMode;
             this.startTime = System.currentTimeMillis();
             this.useSmoothClient = false;
             initializeFloatingCamera();
@@ -169,25 +166,23 @@ public class SpectateSessionManager {
             this.spectatePointData = null;
             this.isPoint = false;
             this.viewMode = ViewMode.ORBIT;
-            this.cinematicMode = null;
             this.startTime = System.currentTimeMillis();
             this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
-        SpectateSession(ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
+        SpectateSession(ServerPlayerEntity target, ViewMode viewMode) {
             this.targetPlayer = target;
             this.spectatePointData = null;
             this.isPoint = false;
             this.viewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
-            this.cinematicMode = cinematicMode;
             this.startTime = System.currentTimeMillis();
             this.useSmoothClient = false;
             initializeFloatingCamera();
         }
 
         private void initializeFloatingCamera() {
-            if (cinematicMode == CinematicMode.FLOATING) {
+            if (viewMode == ViewMode.CINEMATIC_FLOATING) {
                 floatingCamera = new FloatingCamera();
                 // 可以根据需要调整参数
                 floatingCamera.setFloatingStrength(0.5);
@@ -221,10 +216,6 @@ public class SpectateSessionManager {
 
         ViewMode getViewMode() {
             return viewMode;
-        }
-
-        CinematicMode getCinematicMode() {
-            return cinematicMode;
         }
 
         FloatingCamera getFloatingCamera() {
@@ -285,7 +276,7 @@ public class SpectateSessionManager {
      * @param force 是否强制开始（忽略“已在旁观中”的检查）。
      */
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force) {
-        spectatePoint(player, point, force, ViewMode.ORBIT, null);
+        spectatePoint(player, point, force, ViewMode.ORBIT);
     }
 
     /**
@@ -294,10 +285,9 @@ public class SpectateSessionManager {
      * @param player 执行旁观的玩家。
      * @param point 目标观察点数据。
      * @param force 是否强制开始。
-     * @param viewMode 视角模式（如 ORBIT, CINEMATIC）。
-     * @param cinematicMode 如果是 CINEMATIC 模式，指定具体的电影效果子模式。
+     * @param viewMode 视角模式。
      */
-    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force, ViewMode viewMode, CinematicMode cinematicMode) {
+    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, boolean force, ViewMode viewMode) {
         if (point == null) {
             // 如果从命令调用，这种情况理想情况下不应发生，更多的是一种保护措施。
             player.sendMessage(configManager.getMessage("point_not_found"), false);
@@ -315,7 +305,8 @@ public class SpectateSessionManager {
         savePlayerOriginalState(player);
         cancelCurrentSpectation(player.getUuid());
 
-        SpectateSession session = new SpectateSession(point, viewMode, cinematicMode);
+        ViewMode normalizedViewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
+        SpectateSession session = new SpectateSession(point, normalizedViewMode);
         activeSpectations.put(player.getUuid(), session);
 
         // 检查客户端是否有平滑能力
@@ -328,7 +319,7 @@ public class SpectateSessionManager {
         server.execute(() -> {
             changeGameMode(player, GameMode.SPECTATOR);
 
-            String modeMessage = getViewModeMessage(viewMode, cinematicMode);
+            String modeMessage = getViewModeMessage(normalizedViewMode);
             player.sendMessage(configManager.getFormattedMessage("spectate_start_point_with_mode",
                 Map.of("name", point.getDescription(), "mode", modeMessage)), false);
 
@@ -351,7 +342,7 @@ public class SpectateSessionManager {
 
                 // 只有非smooth客户端才需要服务端teleport
                 if (!session.isUseSmoothClient()) {
-                    if (point.getRotationSpeed() > 0 || viewMode != ViewMode.ORBIT) {
+                    if (point.getRotationSpeed() > 0 || normalizedViewMode != ViewMode.ORBIT) {
                         updateOrbitingPosition(player, session, elapsed);
                     }
                 }
@@ -420,8 +411,11 @@ public class SpectateSessionManager {
             case ORBIT:
                 updateOrbitPointPosition(player, session, elapsedSeconds);
                 break;
-            case CINEMATIC:
-                updateCinematicPointPosition(player, session, elapsedSeconds);
+            case CINEMATIC_SLOW_ORBIT:
+            case CINEMATIC_AERIAL_VIEW:
+            case CINEMATIC_SPIRAL_UP:
+            case CINEMATIC_FLOATING:
+                updateCinematicPointPosition(player, session, elapsedSeconds, viewMode);
                 break;
             default:
                 updateOrbitPointPosition(player, session, elapsedSeconds);
@@ -485,14 +479,9 @@ public class SpectateSessionManager {
         teleportPlayer(player, world, camXn, camYn, camZn, yaw, pitch);
     }
 
-    private void updateCinematicPointPosition(ServerPlayerEntity player, SpectateSession session, double elapsedSeconds) {
+    private void updateCinematicPointPosition(ServerPlayerEntity player, SpectateSession session, double elapsedSeconds, ViewMode viewMode) {
         SpectatePointData point = session.getSpectatePointData();
         if (point == null) return;
-        
-        CinematicMode cinematicMode = session.getCinematicMode();
-        if (cinematicMode == null) {
-            cinematicMode = CinematicMode.SLOW_ORBIT;
-        }
 
         // 确保在正确的维度
         ServerWorld targetWorld = player.getServerWorld();
@@ -534,8 +523,8 @@ public class SpectateSessionManager {
         double spiralSpeed, riseSpeed;
         double dx, dy, dz;
         
-        switch (cinematicMode) {
-            case SLOW_ORBIT:
+        switch (viewMode) {
+            case CINEMATIC_SLOW_ORBIT:
                 // 慢速环绕，忽略原点配置的旋转速度
                 distance = Math.max(point.getDistance(), 8.0);
                 heightOffset = point.getHeightOffset() + 2.0;
@@ -549,14 +538,14 @@ public class SpectateSessionManager {
                 camZn = centerZ + camZo;
                 break;
                 
-            case AERIAL_VIEW:
+            case CINEMATIC_AERIAL_VIEW:
                 // 高空俯瞰
                 camXn = centerX;
                 camYn = centerY + 25.0; // 高空视角
                 camZn = centerZ;
                 break;
                 
-            case SPIRAL_UP:
+            case CINEMATIC_SPIRAL_UP:
                 // 螺旋上升
                 distance = Math.max(point.getDistance(), 8.0);
                 spiralSpeed = 1.0; // 度/秒
@@ -572,7 +561,7 @@ public class SpectateSessionManager {
                 camZn = centerZ + camZo;
                 break;
 
-            case FLOATING:
+            case CINEMATIC_FLOATING:
                 // 浮游视角
                 FloatingCamera floatingCam = session.getFloatingCamera();
                 if (floatingCam != null) {
@@ -660,8 +649,14 @@ public class SpectateSessionManager {
             case FOLLOW:
                 updateFollowPlayerPosition(viewer, target, elapsedSeconds);
                 break;
-            case CINEMATIC:
-                updateCinematicPlayerPosition(viewer, target, elapsedSeconds, session.getCinematicMode());
+            case CINEMATIC_SLOW_ORBIT:
+            case CINEMATIC_AERIAL_VIEW:
+            case CINEMATIC_SPIRAL_UP:
+            case CINEMATIC_FLOATING:
+                updateCinematicPlayerPosition(viewer, target, elapsedSeconds, viewMode);
+                break;
+            default:
+                updateOrbitPlayerPosition(viewer, target, elapsedSeconds);
                 break;
         }
     }
@@ -724,18 +719,14 @@ public class SpectateSessionManager {
         //#endif
     }
 
-    private void updateCinematicPlayerPosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds, CinematicMode cinematicMode) {
-        if (cinematicMode == null) {
-            cinematicMode = CinematicMode.SLOW_ORBIT;
-        }
-        
+    private void updateCinematicPlayerPosition(ServerPlayerEntity viewer, ServerPlayerEntity target, double elapsedSeconds, ViewMode viewMode) {
         double camXn, camYn, camZn;
         float yaw, pitch;
         double distance, heightOffset, rotationSpeed, angleRad, camXo, camZo;
         double spiralSpeed, riseSpeed;
         
-        switch (cinematicMode) {
-            case SLOW_ORBIT:
+        switch (viewMode) {
+            case CINEMATIC_SLOW_ORBIT:
                 // 慢速环绕
                 distance = 12.0;
                 heightOffset = 3.0;
@@ -754,14 +745,14 @@ public class SpectateSessionManager {
                 camZn = target.getZ() + camZo;
                 break;
                 
-            case AERIAL_VIEW:
+            case CINEMATIC_AERIAL_VIEW:
                 // 高空俯瞰
                 camXn = target.getX();
                 camYn = target.getY() + 20.0;
                 camZn = target.getZ();
                 break;
                 
-            case SPIRAL_UP:
+            case CINEMATIC_SPIRAL_UP:
                 // 螺旋上升
                 distance = 8.0;
                 spiralSpeed = 2.0; // 2度/秒
@@ -777,7 +768,7 @@ public class SpectateSessionManager {
                 camZn = target.getZ() + camZo;
                 break;
 
-            case FLOATING:
+            case CINEMATIC_FLOATING:
                 // 浮游视角
                 SpectateSession session = activeSpectations.get(viewer.getUuid());
                 if (session != null) {
@@ -806,18 +797,18 @@ public class SpectateSessionManager {
                         return; // 直接返回，不需要下面的通用视角计算
                     } else {
                         // 如果浮游摄像机未初始化，回退到慢速环绕
-                        updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                        updateCinematicPlayerPosition(viewer, target, elapsedSeconds, ViewMode.CINEMATIC_SLOW_ORBIT);
                         return;
                     }
                 } else {
                     // 如果session未找到，回退到慢速环绕
-                    updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                    updateCinematicPlayerPosition(viewer, target, elapsedSeconds, ViewMode.CINEMATIC_SLOW_ORBIT);
                     return;
                 }
                 
             default:
                 // 默认使用慢速环绕
-                updateCinematicPlayerPosition(viewer, target, elapsedSeconds, CinematicMode.SLOW_ORBIT);
+                updateCinematicPlayerPosition(viewer, target, elapsedSeconds, ViewMode.CINEMATIC_SLOW_ORBIT);
                 return;
         }
         
@@ -845,7 +836,7 @@ public class SpectateSessionManager {
      * @param force 是否强制开始。
      */
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force) {
-        spectatePlayer(viewer, target, force, ViewMode.ORBIT, null);
+        spectatePlayer(viewer, target, force, ViewMode.ORBIT);
     }
 
     /**
@@ -855,9 +846,8 @@ public class SpectateSessionManager {
      * @param target 被观察的目标玩家。
      * @param force 是否强制开始。
      * @param viewMode 视角模式。
-     * @param cinematicMode 电影模式子选项。
      */
-    public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force, ViewMode viewMode, CinematicMode cinematicMode) {
+    public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, boolean force, ViewMode viewMode) {
         if (!force && isSpectating(viewer.getUuid())) {
             viewer.sendMessage(configManager.getMessage("spectate_already_running"), false);
             return;
@@ -870,7 +860,8 @@ public class SpectateSessionManager {
         savePlayerOriginalState(viewer);
         cancelCurrentSpectation(viewer.getUuid());
 
-        SpectateSession session = new SpectateSession(target, viewMode, cinematicMode);
+        ViewMode normalizedViewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
+        SpectateSession session = new SpectateSession(target, normalizedViewMode);
         activeSpectations.put(viewer.getUuid(), session);
 
         // 检查客户端是否有平滑能力
@@ -883,7 +874,7 @@ public class SpectateSessionManager {
         server.execute(() -> {
             changeGameMode(viewer, GameMode.SPECTATOR);
 
-            String modeMessage = getViewModeMessage(viewMode, cinematicMode);
+            String modeMessage = getViewModeMessage(normalizedViewMode);
             viewer.sendMessage(configManager.getFormattedMessage("spectate_start_player_with_mode",
                 Map.of("name", target.getName().getString(), "mode", modeMessage)), false);
 
@@ -939,23 +930,24 @@ public class SpectateSessionManager {
         });
     }
 
-    private String getViewModeMessage(ViewMode viewMode, CinematicMode cinematicMode) {
+    private String getViewModeMessage(ViewMode viewMode) {
+        if (viewMode == null) {
+            return "普通模式";
+        }
+
         switch (viewMode) {
             case ORBIT:
                 return "环绕模式";
             case FOLLOW:
                 return "跟随模式";
-            case CINEMATIC:
-                if (cinematicMode != null) {
-                    switch (cinematicMode) {
-                        case SLOW_ORBIT: return "电影模式 - 慢速环绕";
-                        case AERIAL_VIEW: return "电影模式 - 高空俯瞰";
-                        case SPIRAL_UP: return "电影模式 - 螺旋上升";
-                        case FLOATING: return "电影模式 - 浮游视角";
-                        default: return "电影模式";
-                    }
-                }
-                return "电影模式";
+            case CINEMATIC_SLOW_ORBIT:
+                return "慢速环绕";
+            case CINEMATIC_AERIAL_VIEW:
+                return "高空俯瞰";
+            case CINEMATIC_SPIRAL_UP:
+                return "螺旋上升";
+            case CINEMATIC_FLOATING:
+                return "浮游视角";
             default:
                 return "普通模式";
         }
@@ -1086,7 +1078,7 @@ public class SpectateSessionManager {
         if (session == null) {
             return null;
         }
-        return getViewModeMessage(session.getViewMode(), session.getCinematicMode());
+        return getViewModeMessage(session.getViewMode());
     }
 
     // ==================== Smooth Client 相关方法 ====================
@@ -1103,8 +1095,7 @@ public class SpectateSessionManager {
                 null,
                 point.getPosition(),
                 point.getDimension(),
-                session.getViewMode(),
-                session.getCinematicMode()
+                session.getViewMode()
         );
         handler.sendStatePacket(player, statePayload);
 
@@ -1141,8 +1132,7 @@ public class SpectateSessionManager {
                 target.getUuid(),
                 null,
                 dimension,
-                session.getViewMode(),
-                session.getCinematicMode()
+                session.getViewMode()
         );
         handler.sendStatePacket(viewer, statePayload);
 

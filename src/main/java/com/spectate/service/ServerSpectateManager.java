@@ -48,23 +48,21 @@ public class ServerSpectateManager {
     public void spectatePoint(ServerPlayerEntity player, SpectatePointData point) {
         PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
         ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
-        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
         
-        sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
+        sessionManager.spectatePoint(player, point, false, viewMode);
     }
 
     /**
      * 使用指定视角模式观察一个已定义的点。
      * 同时保存该偏好。
      */
-    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, ViewMode viewMode, CinematicMode cinematicMode) {
+    public void spectatePoint(ServerPlayerEntity player, SpectatePointData point, ViewMode viewMode) {
         // 保存偏好
         PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
-        pref.lastSpectateViewMode = viewMode;
-        pref.lastSpectateCinematicMode = cinematicMode;
+        pref.lastSpectateViewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
         stateSaver.savePlayerPreference(player.getUuid(), pref);
 
-        sessionManager.spectatePoint(player, point, false, viewMode, cinematicMode);
+        sessionManager.spectatePoint(player, point, false, viewMode);
     }
 
     /**
@@ -74,23 +72,21 @@ public class ServerSpectateManager {
     public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target) {
         PlayerPreference pref = stateSaver.getPlayerPreference(viewer.getUuid());
         ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
-        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
 
-        sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
+        sessionManager.spectatePlayer(viewer, target, false, viewMode);
     }
 
     /**
      * 使用指定视角模式观察另一个玩家。
      * 同时保存该偏好。
      */
-    public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, ViewMode viewMode, CinematicMode cinematicMode) {
+    public void spectatePlayer(ServerPlayerEntity viewer, ServerPlayerEntity target, ViewMode viewMode) {
         // 保存偏好
         PlayerPreference pref = stateSaver.getPlayerPreference(viewer.getUuid());
-        pref.lastSpectateViewMode = viewMode;
-        pref.lastSpectateCinematicMode = cinematicMode;
+        pref.lastSpectateViewMode = viewMode != null ? viewMode : ViewMode.ORBIT;
         stateSaver.savePlayerPreference(viewer.getUuid(), pref);
         
-        sessionManager.spectatePlayer(viewer, target, false, viewMode, cinematicMode);
+        sessionManager.spectatePlayer(viewer, target, false, viewMode);
     }
 
     /**
@@ -109,9 +105,8 @@ public class ServerSpectateManager {
         // 同样使用普通旁观的偏好
         PlayerPreference pref = stateSaver.getPlayerPreference(player.getUuid());
         ViewMode viewMode = pref.lastSpectateViewMode != null ? pref.lastSpectateViewMode : ViewMode.ORBIT;
-        CinematicMode cinematicMode = pref.lastSpectateCinematicMode;
 
-        sessionManager.spectatePoint(player, data, false, viewMode, cinematicMode);
+        sessionManager.spectatePoint(player, data, false, viewMode);
     }
 
     /**
@@ -213,10 +208,9 @@ public class ServerSpectateManager {
      *
      * @param player 目标玩家。
      * @param viewMode 视角模式。
-     * @param cinematicMode 电影模式。
      */
-    public void startCycle(ServerPlayerEntity player, ViewMode viewMode, CinematicMode cinematicMode) {
-        cycleService.startCycle(player, viewMode, cinematicMode);
+    public void startCycle(ServerPlayerEntity player, ViewMode viewMode) {
+        cycleService.startCycle(player, viewMode);
     }
 
     /**
@@ -260,7 +254,6 @@ public class ServerSpectateManager {
 
         // 获取当前循环的视角模式
         ViewMode viewMode = cycleService.getCurrentViewMode(player.getUuid());
-        CinematicMode cinematicMode = cycleService.getCurrentCinematicMode(player.getUuid());
 
         if (pointName.startsWith(PLAYER_PREFIX)) {
             String targetName = pointName.substring(PLAYER_PREFIX.length());
@@ -277,14 +270,14 @@ public class ServerSpectateManager {
                     player.sendMessage(configManager.getMessage("cycle_list_empty"), false);
                 }
             } else {
-                sessionManager.spectatePlayer(player, target, true, viewMode, cinematicMode);
+                sessionManager.spectatePlayer(player, target, true, viewMode);
             }
         } else {
             SpectatePointData point = pointManager.getPoint(pointName);
             if (point == null) {
                 player.sendMessage(configManager.getFormattedMessage("point_not_found", Map.of("name", pointName)), false);
             } else {
-                sessionManager.spectatePoint(player, point, true, viewMode, cinematicMode);
+                sessionManager.spectatePoint(player, point, true, viewMode);
             }
         }
     }

@@ -6,7 +6,6 @@ import com.spectate.network.packet.ClientCapabilityPayload;
 import com.spectate.network.packet.SpectateParamsPayload;
 import com.spectate.network.packet.SpectateStatePayload;
 import com.spectate.network.packet.TargetUpdatePayload;
-import com.spectate.service.CinematicMode;
 import com.spectate.service.ViewMode;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.BlockPos;
@@ -35,8 +34,6 @@ public class ClientSpectateManager {
     private BlockPos pointPos = null;
     private String dimension = "";
     private ViewMode viewMode = ViewMode.ORBIT;
-    @Nullable
-    private CinematicMode cinematicMode = null;
 
     // 平滑摄像机控制器
     private final SmoothCameraController cameraController;
@@ -142,10 +139,9 @@ public class ClientSpectateManager {
         this.pointPos = payload.pointPos();
         this.dimension = payload.dimension();
         this.viewMode = payload.viewMode();
-        this.cinematicMode = payload.cinematicMode();
 
         cameraController.reset();
-        cameraController.setViewMode(viewMode, cinematicMode);
+        cameraController.setViewMode(viewMode);
 
         // 设置初始目标位置
         if (isPoint && pointPos != null) {
@@ -164,8 +160,7 @@ public class ClientSpectateManager {
 
     private void updateSpectating(SpectateStatePayload payload) {
         this.viewMode = payload.viewMode();
-        this.cinematicMode = payload.cinematicMode();
-        cameraController.setViewMode(viewMode, cinematicMode);
+        cameraController.setViewMode(viewMode);
     }
 
     private void stopSpectating() {
@@ -175,7 +170,6 @@ public class ClientSpectateManager {
         this.pointPos = null;
         this.dimension = "";
         this.viewMode = ViewMode.ORBIT;
-        this.cinematicMode = null;
 
         cameraController.reset();
 
@@ -240,10 +234,5 @@ public class ClientSpectateManager {
 
     public ViewMode getViewMode() {
         return viewMode;
-    }
-
-    @Nullable
-    public CinematicMode getCinematicMode() {
-        return cinematicMode;
     }
 }

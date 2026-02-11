@@ -30,7 +30,7 @@ public class SpectateNetworking {
     //#endif
 
     // 协议版本，用于版本兼容性检查
-    public static final int PROTOCOL_VERSION = 1;
+    public static final int PROTOCOL_VERSION = 2;
 
     /**
      * 注册服务端发送的包 (S2C)

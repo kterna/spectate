@@ -14,7 +14,6 @@ import com.spectate.service.SpectatePointManager;
 import com.spectate.service.ServerSpectateManager;
 import com.spectate.service.SpectateSessionManager;
 import com.spectate.service.ViewMode;
-import com.spectate.service.CinematicMode;
 import com.spectate.data.SpectateStatsManager;
 import com.spectate.data.SpectateStats;
 import java.util.UUID;
@@ -160,16 +159,9 @@ public class SpectateCommand {
                                         sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
                                         return 0;
                                     }
-                                    ViewMode viewMode = ViewMode.ORBIT;
-                                    CinematicMode cinematicMode = null;
-                                    if ("follow".equalsIgnoreCase(modeStr)) {
-                                        viewMode = ViewMode.FOLLOW;
-                                    } else if (!"orbit".equalsIgnoreCase(modeStr)) {
-                                        viewMode = ViewMode.CINEMATIC;
-                                        cinematicMode = CinematicMode.fromString(modeStr);
-                                    }
+                                    ViewMode viewMode = ViewMode.fromString(modeStr);
                                     ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target,
-                                        viewMode, cinematicMode);
+                                        viewMode);
                                     return 1;
                                 })));
     }
@@ -200,14 +192,9 @@ public class SpectateCommand {
                                         sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
                                         return 0;
                                     }
-                                    ViewMode viewMode = ViewMode.ORBIT;
-                                    CinematicMode cinematicMode = null;
-                                    if (!"orbit".equalsIgnoreCase(modeStr)) {
-                                        viewMode = ViewMode.CINEMATIC;
-                                        cinematicMode = CinematicMode.fromString(modeStr);
-                                    }
+                                    ViewMode viewMode = ViewMode.fromString(modeStr);
                                     ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point,
-                                        viewMode, cinematicMode);
+                                        viewMode);
                                     return 1;
                                 })));
     }
@@ -448,15 +435,8 @@ public class SpectateCommand {
                         }, b))
                         .executes(ctx -> {
                             String modeStr = StringArgumentType.getString(ctx, "mode");
-                            ViewMode viewMode = ViewMode.ORBIT;
-                            CinematicMode cinematicMode = null;
-                            if ("follow".equalsIgnoreCase(modeStr)) {
-                                viewMode = ViewMode.FOLLOW;
-                            } else if (!"orbit".equalsIgnoreCase(modeStr)) {
-                                viewMode = ViewMode.CINEMATIC;
-                                cinematicMode = CinematicMode.fromString(modeStr);
-                            }
-                            manager.startCycle(ctx.getSource().getPlayer(), viewMode, cinematicMode);
+                            ViewMode viewMode = ViewMode.fromString(modeStr);
+                            manager.startCycle(ctx.getSource().getPlayer(), viewMode);
                             return 1;
                         })));
 
@@ -640,14 +620,9 @@ public class SpectateCommand {
                                         sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("point_not_found", Map.of("name", name)));
                                         return 0;
                                     }
-                                    ViewMode viewMode = ViewMode.ORBIT;
-                                    CinematicMode cinematicMode = null;
-                                    if (!"orbit".equalsIgnoreCase(modeStr)) {
-                                        viewMode = ViewMode.CINEMATIC;
-                                        cinematicMode = CinematicMode.fromString(modeStr);
-                                    }
+                                    ViewMode viewMode = ViewMode.fromString(modeStr);
                                     ServerSpectateManager.getInstance().spectatePoint(ctx.getSource().getPlayer(), point, 
-                                        viewMode, cinematicMode);
+                                        viewMode);
                                     return 1;
                                 })));
     }
@@ -770,15 +745,8 @@ public class SpectateCommand {
                         }, b))
                         .executes(ctx -> {
                             String modeStr = StringArgumentType.getString(ctx, "mode");
-                            ViewMode viewMode = ViewMode.ORBIT;
-                            CinematicMode cinematicMode = null;
-                            if ("follow".equalsIgnoreCase(modeStr)) {
-                                viewMode = ViewMode.FOLLOW;
-                            } else if (!"orbit".equalsIgnoreCase(modeStr)) {
-                                viewMode = ViewMode.CINEMATIC;
-                                cinematicMode = CinematicMode.fromString(modeStr);
-                            }
-                            manager.startCycle(ctx.getSource().getPlayer(), viewMode, cinematicMode);
+                            ViewMode viewMode = ViewMode.fromString(modeStr);
+                            manager.startCycle(ctx.getSource().getPlayer(), viewMode);
                             return 1;
                         })));
 
@@ -818,16 +786,9 @@ public class SpectateCommand {
                                         sendError(ctx.getSource(), CONFIG_MANAGER.getFormattedMessage("player_not_found", Map.of("name", targetName)));
                                         return 0;
                                     }
-                                    ViewMode viewMode = ViewMode.ORBIT;
-                                    CinematicMode cinematicMode = null;
-                                    if ("follow".equalsIgnoreCase(modeStr)) {
-                                        viewMode = ViewMode.FOLLOW;
-                                    } else if (!"orbit".equalsIgnoreCase(modeStr)) {
-                                        viewMode = ViewMode.CINEMATIC;
-                                        cinematicMode = CinematicMode.fromString(modeStr);
-                                    }
+                                    ViewMode viewMode = ViewMode.fromString(modeStr);
                                     ServerSpectateManager.getInstance().spectatePlayer(ctx.getSource().getPlayer(), target, 
-                                        viewMode, cinematicMode);
+                                        viewMode);
                                     return 1;
                                 })));
     }
