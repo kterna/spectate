@@ -1,0 +1,56 @@
+{
+  "targets": {
+    "swap": {}
+  },
+  "passes": [
+    {
+      "program": "spectate:post/tiltshift",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "minecraft:main",
+          "bilinear": true
+        }
+      ],
+      "output": "swap",
+      "uniforms": [
+        {
+          "name": "FocusY",
+          "values": [0.5]
+        },
+        {
+          "name": "FocusWidth",
+          "values": [0.1]
+        },
+        {
+          "name": "BlurRadius",
+          "values": [40.0]
+        },
+        {
+          "name": "Falloff",
+          "values": [0.5]
+        },
+        {
+          "name": "SaturationBoost",
+          "values": [1.5]
+        }
+      ]
+    },
+    {
+      "program": "minecraft:post/blit",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "swap"
+        }
+      ],
+      "output": "minecraft:main",
+      "uniforms": [
+        {
+          "name": "ColorModulate",
+          "values": [1.0, 1.0, 1.0, 1.0]
+        }
+      ]
+    }
+  ]
+}

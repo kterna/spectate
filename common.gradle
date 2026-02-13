@@ -164,6 +164,12 @@ processResources {
     filesMatching(MIXIN_CONFIG_PATH) {
         filter { s -> s.replace('{{COMPATIBILITY_LEVEL}}', "JAVA_${MIXIN_COMPATIBILITY_LEVEL.ordinal() + 1}") }
     }
+
+    // Resource format differs in 1.21.4 for post effects; inject tracked overrides from the root project.
+    if (mcVersion == 12104) {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        from(rootProject.file("src/versioned-resources/1.21.4"))
+    }
 }
 
 // ensure that the encoding is set to UTF-8, no matter what the system default is
