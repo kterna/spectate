@@ -34,6 +34,7 @@ repositories {
 // https://github.com/FabricMC/fabric-loader/issues/783
 configurations {
     modRuntimeOnly.exclude group: 'net.fabricmc', module: 'fabric-loader'
+    modLocalRuntime.exclude group: 'net.fabricmc', module: 'fabric-loader'
     modCompileOnly.exclude group: 'com.github.2No2Name', module: 'McTester'
     modImplementation.exclude group: 'com.github.2No2Name', module: 'McTester'
 }
@@ -71,7 +72,8 @@ JavaVersion MIXIN_COMPATIBILITY_LEVEL = JAVA_COMPATIBILITY
 loom {
     def commonVmArgs = ['-Dmixin.debug.export=true']
     runConfigs.configureEach {
-        runDir '../../run'
+        // Keep per-MC-version run directories so local test mods (e.g. Carpet) don't conflict.
+        runDir "../../run/${project.name}"
         vmArgs commonVmArgs
         ideConfigGenerated true
     }

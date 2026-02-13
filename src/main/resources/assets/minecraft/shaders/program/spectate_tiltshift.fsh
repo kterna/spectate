@@ -1,17 +1,15 @@
-#version 150
+#version 110
 
 uniform sampler2D DiffuseSampler;
 
-in vec2 texCoord;
-in vec2 sampleStep;
+varying vec2 texCoord;
+varying vec2 sampleStep;
 
 uniform float FocusY;
 uniform float FocusWidth;
 uniform float BlurRadius;
 uniform float Falloff;
 uniform float SaturationBoost;
-
-out vec4 fragColor;
 
 float getBlurFactor(float y) {
     float dist = abs(y - FocusY);
@@ -22,13 +20,13 @@ float getBlurFactor(float y) {
 vec3 applyBlur(vec2 uv, float radiusScale) {
     vec2 offset = vec2(0.0016, 0.0010) * radiusScale;
 
-    vec3 color = texture(DiffuseSampler, uv).rgb * 0.28;
-    color += texture(DiffuseSampler, uv + vec2(offset.x, 0.0)).rgb * 0.16;
-    color += texture(DiffuseSampler, uv - vec2(offset.x, 0.0)).rgb * 0.16;
-    color += texture(DiffuseSampler, uv + vec2(0.0, offset.y)).rgb * 0.16;
-    color += texture(DiffuseSampler, uv - vec2(0.0, offset.y)).rgb * 0.16;
-    color += texture(DiffuseSampler, uv + offset).rgb * 0.04;
-    color += texture(DiffuseSampler, uv - offset).rgb * 0.04;
+    vec3 color = texture2D(DiffuseSampler, uv).rgb * 0.28;
+    color += texture2D(DiffuseSampler, uv + vec2(offset.x, 0.0)).rgb * 0.16;
+    color += texture2D(DiffuseSampler, uv - vec2(offset.x, 0.0)).rgb * 0.16;
+    color += texture2D(DiffuseSampler, uv + vec2(0.0, offset.y)).rgb * 0.16;
+    color += texture2D(DiffuseSampler, uv - vec2(0.0, offset.y)).rgb * 0.16;
+    color += texture2D(DiffuseSampler, uv + offset).rgb * 0.04;
+    color += texture2D(DiffuseSampler, uv - offset).rgb * 0.04;
     return color;
 }
 
@@ -41,11 +39,11 @@ void main() {
     float blurFactor = getBlurFactor(texCoord.y);
     float radiusScale = (BlurRadius / 8.0) * max(blurFactor, 0.01);
 
-    vec3 sharpColor = texture(DiffuseSampler, texCoord).rgb;
+    vec3 sharpColor = texture2D(DiffuseSampler, texCoord).rgb;
     vec3 blurColor = applyBlur(texCoord, radiusScale);
 
     vec3 finalColor = mix(sharpColor, blurColor, blurFactor);
     finalColor = adjustSaturation(finalColor, SaturationBoost);
 
-    fragColor = vec4(finalColor, 1.0);
+    gl_FragColor = vec4(finalColor, 1.0);
 }
