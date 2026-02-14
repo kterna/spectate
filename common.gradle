@@ -165,10 +165,13 @@ processResources {
         filter { s -> s.replace('{{COMPATIBILITY_LEVEL}}', "JAVA_${MIXIN_COMPATIBILITY_LEVEL.ordinal() + 1}") }
     }
 
-    // Resource format differs in 1.21.4 for post effects; inject tracked overrides from the root project.
-    if (mcVersion == 12104) {
+    // Resource formats differ across some MC versions for post effects; inject tracked overrides.
+    if (mcVersion == 12104 || mcVersion >= 12107) {
         duplicatesStrategy = DuplicatesStrategy.INCLUDE
-        from(rootProject.file("src/versioned-resources/1.21.4"))
+        def versionedResourcePath = mcVersion == 12104
+                ? "src/versioned-resources/1.21.4"
+                : "src/versioned-resources/1.21.7"
+        from(rootProject.file(versionedResourcePath))
     }
 }
 
