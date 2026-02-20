@@ -985,10 +985,9 @@ public class SpectateSessionManager {
 
                 double elapsed = (System.currentTimeMillis() - session.startTime) / 1000.0;
 
-                // 只有非smooth客户端才需要服务端teleport
-                if (!session.isUseSmoothClient()) {
-                    updatePlayerSpectatePosition(viewer, target, elapsed);
-                }
+                // 始终更新服务端玩家实体位置，确保区块加载与实体跟踪范围跟随目标。
+                // smooth 客户端仍由本地相机渲染，这里的 teleport 主要用于服务端同步。
+                updatePlayerSpectatePosition(viewer, target, elapsed);
 
                 // 发送 ActionBar 信息
                 sendActionBarInfo(viewer, session);
@@ -1039,9 +1038,9 @@ public class SpectateSessionManager {
     public boolean stopSpectating(ServerPlayerEntity player) {
         UUID playerId = player.getUuid();
 
-        // 发送停止包给smooth客户端
-        SpectateSession session = activeSpectations.get(playerId);
-        if (session != null && session.isUseSmoothClient()) {
+        // 目标下线时会话可能已被 cancelCurrentSpectation 提前移除。
+        // 只要该玩家仍有旁观原始状态，就需要发送 STOP 以重置客户端平滑镜头状态。
+        if (playerOriginalStates.containsKey(playerId) && ServerNetworkHandler.getInstance().hasSmoothCapability(playerId)) {
             ServerNetworkHandler.getInstance().sendStatePacket(player, SpectateStatePayload.stop());
         }
 
