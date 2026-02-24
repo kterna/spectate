@@ -29,7 +29,17 @@ jobs:
       uses: gradle/gradle-build-action@v3
 
     - name: Build all versions
-      run: ./gradlew buildAndGather
+      run: |
+        for i in 1 2 3; do
+          echo "Attempt $i..."
+          ./gradlew buildAndGather && break
+          if [ $i -eq 3 ]; then
+            echo "Build failed after 3 attempts"
+            exit 1
+          fi
+          echo "Build failed, retrying in 15s..."
+          sleep 15
+        done
 
     - name: Get version from tag
       id: get_version
