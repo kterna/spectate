@@ -31,7 +31,17 @@ jobs:
       uses: gradle/gradle-build-action@v3
 
     - name: Build with Gradle
-      run: ./gradlew :${{ matrix.version }}:build
+      run: |
+        for i in 1 2 3; do
+          echo "Attempt $i..."
+          ./gradlew :${{ matrix.version }}:build && break
+          if [ $i -eq 3 ]; then
+            echo "Build failed after 3 attempts"
+            exit 1
+          fi
+          echo "Build failed, retrying in 15s..."
+          sleep 15
+        done
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

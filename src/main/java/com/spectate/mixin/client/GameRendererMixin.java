@@ -18,6 +18,8 @@ public abstract class GameRendererMixin {
     private static final net.minecraft.util.Identifier SPECTATE_TILTSHIFT_EFFECT_ID = net.minecraft.util.Identifier.of(SpectateMod.MOD_ID, "tiltshift");
     //#elseif MC >= 12100
     //$$ private static final net.minecraft.util.Identifier SPECTATE_TILTSHIFT_EFFECT_ID = net.minecraft.util.Identifier.of(SpectateMod.MOD_ID, "shaders/post/tiltshift.json");
+    //#elseif MC == 11605
+    //$$ private static final net.minecraft.util.Identifier SPECTATE_TILTSHIFT_EFFECT_ID = new net.minecraft.util.Identifier(SpectateMod.MOD_ID, "shaders/post/tiltshift.json");
     //#else
     //$$ private static final net.minecraft.util.Identifier SPECTATE_TILTSHIFT_EFFECT_ID = new net.minecraft.util.Identifier(SpectateMod.MOD_ID, "tiltshift");
     //#endif
@@ -75,6 +77,40 @@ public abstract class GameRendererMixin {
     //$$     }
     //$$
     //$$     return spectate$legacyTiltShiftEffect;
+    //$$ }
+    //#elseif MC == 11605
+    //$$ private net.minecraft.client.gl.ShaderEffect spectate$legacyTiltShiftEffect;
+    //$$ private int spectate$legacyTiltShiftWidth = -1;
+    //$$ private int spectate$legacyTiltShiftHeight = -1;
+    //$$
+    //$$ private net.minecraft.client.gl.ShaderEffect spectate$getLegacyTiltShiftEffect(net.minecraft.client.MinecraftClient client) throws Exception {
+    //$$     if (spectate$legacyTiltShiftEffect == null) {
+    //$$         spectate$legacyTiltShiftEffect = new net.minecraft.client.gl.ShaderEffect(
+    //$$                 client.getTextureManager(),
+    //$$                 client.getResourceManager(),
+    //$$                 client.getFramebuffer(),
+    //$$                 SPECTATE_TILTSHIFT_EFFECT_ID
+    //$$         );
+    //$$         spectate$legacyTiltShiftWidth = -1;
+    //$$         spectate$legacyTiltShiftHeight = -1;
+    //$$     }
+    //$$
+    //$$     int width = client.getWindow().getFramebufferWidth();
+    //$$     int height = client.getWindow().getFramebufferHeight();
+    //$$     if (width != spectate$legacyTiltShiftWidth || height != spectate$legacyTiltShiftHeight) {
+    //$$         spectate$legacyTiltShiftEffect.setupDimensions(width, height);
+    //$$         spectate$legacyTiltShiftWidth = width;
+    //$$         spectate$legacyTiltShiftHeight = height;
+    //$$     }
+    //$$
+    //$$     return spectate$legacyTiltShiftEffect;
+    //$$ }
+    //$$
+    //$$ private static void spectate$setLegacyUniform(net.minecraft.client.gl.ShaderEffect effect, String uniformName, float value) {
+    //$$     for (Object passObj : ((ShaderEffectAccessor) (Object) effect).spectate$getPasses()) {
+    //$$         net.minecraft.client.gl.PostProcessShader pass = (net.minecraft.client.gl.PostProcessShader) passObj;
+    //$$         pass.getProgram().getUniformByNameOrDummy(uniformName).set(value);
+    //$$     }
     //$$ }
     //#endif
 
@@ -195,6 +231,40 @@ public abstract class GameRendererMixin {
     //$$         postEffect.setUniforms("Falloff", (float) tiltShift.getFalloff());
     //$$         postEffect.setUniforms("SaturationBoost", (float) tiltShift.getSaturationBoost());
     //$$         postEffect.render(tickCounter.getTickDelta(false));
+    //$$     } catch (Exception e) {
+    //$$         spectate$legacyTiltShiftEffect = null;
+    //$$         SpectateMod.LOGGER.warn("[Spectate] Failed to apply legacy tilt-shift post effect", e);
+    //$$     }
+    //$$ }
+    //#elseif MC == 11605
+    //$$ @Inject(
+    //$$         method = "render",
+    //$$         at = @At(
+    //$$                 value = "INVOKE",
+    //$$                 target = "Lnet/minecraft/client/render/WorldRenderer;drawEntityOutlinesFramebuffer()V",
+    //$$                 shift = At.Shift.AFTER
+    //$$         )
+    //$$ )
+    //$$ private void spectate$renderTiltShiftLegacy(float tickDelta, long startTime, boolean tick, CallbackInfo ci) {
+    //$$     net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+    //$$     if (client.world == null) {
+    //$$         return;
+    //$$     }
+    //$$
+    //$$     ClientSpectateManager manager = ClientSpectateManager.getInstance();
+    //$$     TiltShiftSettings tiltShift = manager.getTiltShiftSettings();
+    //$$     if (!manager.isSpectating() || !tiltShift.isEnabled()) {
+    //$$         return;
+    //$$     }
+    //$$
+    //$$     try {
+    //$$         net.minecraft.client.gl.ShaderEffect postEffect = spectate$getLegacyTiltShiftEffect(client);
+    //$$         spectate$setLegacyUniform(postEffect, "FocusY", (float) tiltShift.getFocusY());
+    //$$         spectate$setLegacyUniform(postEffect, "FocusWidth", (float) tiltShift.getFocusWidth());
+    //$$         spectate$setLegacyUniform(postEffect, "BlurRadius", (float) tiltShift.getBlurRadius());
+    //$$         spectate$setLegacyUniform(postEffect, "Falloff", (float) tiltShift.getFalloff());
+    //$$         spectate$setLegacyUniform(postEffect, "SaturationBoost", (float) tiltShift.getSaturationBoost());
+    //$$         postEffect.render(tickDelta);
     //$$     } catch (Exception e) {
     //$$         spectate$legacyTiltShiftEffect = null;
     //$$         SpectateMod.LOGGER.warn("[Spectate] Failed to apply legacy tilt-shift post effect", e);

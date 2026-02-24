@@ -34,6 +34,7 @@ repositories {
 // https://github.com/FabricMC/fabric-loader/issues/783
 configurations {
     modRuntimeOnly.exclude group: 'net.fabricmc', module: 'fabric-loader'
+    modLocalRuntime.exclude group: 'net.fabricmc', module: 'fabric-loader'
     modCompileOnly.exclude group: 'com.github.2No2Name', module: 'McTester'
     modImplementation.exclude group: 'com.github.2No2Name', module: 'McTester'
 }
@@ -71,7 +72,8 @@ JavaVersion MIXIN_COMPATIBILITY_LEVEL = JAVA_COMPATIBILITY
 loom {
     def commonVmArgs = ['-Dmixin.debug.export=true']
     runConfigs.configureEach {
-        runDir '../../run'
+        // Keep per-MC-version run directories so local test mods (e.g. Carpet) don't conflict.
+        runDir "../../run/${project.name}"
         vmArgs commonVmArgs
         ideConfigGenerated true
     }
@@ -161,6 +163,15 @@ processResources {
     // 如果没启用mixin，那这里可以删掉
     filesMatching(MIXIN_CONFIG_PATH) {
         filter { s -> s.replace('{{COMPATIBILITY_LEVEL}}', "JAVA_${MIXIN_COMPATIBILITY_LEVEL.ordinal() + 1}") }
+    }
+
+    // Resource formats differ across some MC versions for post effects; inject tracked overrides.
+    if (mcVersion == 12104 || mcVersion >= 12107) {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        def versionedResourcePath = mcVersion == 12104
+                ? "src/versioned-resources/1.21.4"
+                : "src/versioned-resources/1.21.7"
+        from(rootProject.file(versionedResourcePath))
     }
 }
 
